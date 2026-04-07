@@ -92,23 +92,11 @@ canvas#dgth{
     margin-bottom:1px;
   }
 
-  /* D-pad area fills remaining space */
+  /* Thumbstick zone — fills all remaining space below canvas */
   #dpad-wrap{
     display:flex !important;
     flex:1;
-    width:100%;
-    background:#05050e;
-    align-items:center;
-    justify-content:center;
-    position:relative;
-    z-index:2;
-    user-select:none;-webkit-user-select:none;
-  }
-
-  /* Thumbstick zone fills remaining space */
-  #dpad-wrap{
-    display:flex !important;
-    flex:1;
+    min-height:0;
     width:100%;
     background:#04040b;
     align-items:center;
@@ -118,10 +106,10 @@ canvas#dgth{
     user-select:none;-webkit-user-select:none;
   }
 
-  /* Outer ring */
+  /* Outer ring — sized to fill the control zone */
   #stick-outer{
-    width:min(56vw,220px);
-    height:min(56vw,220px);
+    width:min(54vw, 44dvh, 240px);
+    height:min(54vw, 44dvh, 240px);
     border-radius:50%;
     border:1.5px solid rgba(91,200,245,0.14);
     background:rgba(8,8,22,0.7);
@@ -172,7 +160,7 @@ canvas#dgth{
 
 /* Very small phones */
 @media (pointer:coarse) and (orientation:portrait) and (max-width:360px){
-  #stick-outer{width:min(62vw,190px);height:min(62vw,190px);}
+  #stick-outer{width:min(62vw,38dvh,180px);height:min(62vw,38dvh,180px);}
 }
 </style></head><body>
 <canvas id="bgc"></canvas>
@@ -3150,20 +3138,19 @@ function scaleCanvas(){
   const isPortrait=window.innerHeight>window.innerWidth;
   let scale;
   if(isTouch&&isPortrait){
-    scale=window.innerWidth/W;
+    // Canvas gets at most 56% of screen height, full width — whichever is tighter
+    const maxCanvasH=window.innerHeight*0.56;
+    const scaleByW=window.innerWidth/W;
+    const scaleByH=maxCanvasH/H;
+    scale=Math.min(scaleByW,scaleByH);
   } else {
     const scaleX=(window.innerWidth*0.96)/W;
     const scaleY=(window.innerHeight*0.94)/H;
     scale=Math.min(scaleX,scaleY,2.0);
   }
   canvasScale=scale;
-
-  // CSS size — how big it appears on screen
   cv.style.width=Math.round(W*scale)+'px';
   cv.style.height=Math.round(H*scale)+'px';
-
-  // Physical pixel buffer — native resolution, no interpolation blur
-  // Width/height attributes are the actual pixels the GPU renders
   cv.width=Math.round(W*scale*dpr);
   cv.height=Math.round(H*scale*dpr);
 }
