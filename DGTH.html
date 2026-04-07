@@ -105,42 +105,63 @@ canvas#dgth{
     user-select:none;-webkit-user-select:none;
   }
 
-  /* The cross itself — size clamps to available space */
-  .dpad{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    grid-template-rows:repeat(3,1fr);
-    gap:6px;
-    width:min(52vw,210px);
-    height:min(52vw,210px);
+  /* Thumbstick zone fills remaining space */
+  #dpad-wrap{
+    display:flex !important;
+    flex:1;
+    width:100%;
+    background:#04040b;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    z-index:2;
+    user-select:none;-webkit-user-select:none;
   }
-  .dpad-btn{
-    background:#0e0e24;
-    border:1.5px solid rgba(91,200,245,0.18);
-    border-radius:14px;
-    display:flex;align-items:center;justify-content:center;
-    font-size:clamp(20px,6vw,28px);
-    color:#5bc8f5;
-    transition:background 0.07s,transform 0.06s,border-color 0.07s,box-shadow 0.07s;
-    -webkit-tap-highlight-color:transparent;
-    cursor:pointer;
-  }
-  .dpad-btn:active,.dpad-btn.pressed{
-    background:rgba(91,200,245,0.16);
-    border-color:rgba(91,200,245,0.75);
-    box-shadow:0 0 16px rgba(91,200,245,0.4);
-    transform:scale(0.86);
-  }
-  .dpad-center{
-    background:rgba(8,7,20,0.6);
-    border:none;
+
+  /* Outer ring */
+  #stick-outer{
+    width:min(56vw,220px);
+    height:min(56vw,220px);
     border-radius:50%;
+    border:1.5px solid rgba(91,200,245,0.14);
+    background:rgba(8,8,22,0.7);
+    position:relative;
+    display:flex;align-items:center;justify-content:center;
   }
-  .dpad-center:active,.dpad-center.pressed{
-    background:rgba(8,7,20,0.6);
-    box-shadow:none;
-    transform:none;
+  /* Cardinal tick marks */
+  #stick-outer::before{
+    content:'';
+    position:absolute;inset:0;
+    border-radius:50%;
+    background:
+      radial-gradient(ellipse 2px 18% at 50% 4%, rgba(91,200,245,0.25) 0%, transparent 100%),
+      radial-gradient(ellipse 2px 18% at 50% 96%, rgba(91,200,245,0.25) 0%, transparent 100%),
+      radial-gradient(ellipse 18% 2px at 4% 50%, rgba(91,200,245,0.25) 0%, transparent 100%),
+      radial-gradient(ellipse 18% 2px at 96% 50%, rgba(91,200,245,0.25) 0%, transparent 100%);
   }
+  /* Inner nub */
+  #stick-nub{
+    width:38%;height:38%;
+    border-radius:50%;
+    background:radial-gradient(circle at 38% 38%, #1e2050, #0c0c28);
+    border:2px solid rgba(91,200,245,0.45);
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    transition:border-color 0.1s;
+    pointer-events:none;
+  }
+  #stick-nub.active{
+    border-color:rgba(91,200,245,0.9);
+    box-shadow:0 0 18px rgba(91,200,245,0.4);
+  }
+
+  /* Direction indicator arc — lights up the active quadrant */
+  #stick-dir-arc{
+    position:absolute;inset:0;border-radius:50%;pointer-events:none;opacity:0;
+    transition:opacity 0.1s;
+  }
+  #stick-dir-arc.show{opacity:1;}
 
   /* Swipe hint */
   #swipe-hint{transition:opacity 0.3s;}
@@ -149,10 +170,9 @@ canvas#dgth{
   .mode-2p-btn{display:none !important;}
 }
 
-/* Very small phones — tighten dpad */
+/* Very small phones */
 @media (pointer:coarse) and (orientation:portrait) and (max-width:360px){
-  .dpad{gap:4px;}
-  .dpad-btn{border-radius:10px;font-size:18px;}
+  #stick-outer{width:min(62vw,190px);height:min(62vw,190px);}
 }
 </style></head><body>
 <canvas id="bgc"></canvas>
@@ -189,18 +209,11 @@ canvas#dgth{
   </div>
 </div>
 
-<!-- D-pad (portrait mobile only — single player) -->
+<!-- Thumbstick (portrait mobile only) -->
 <div id="dpad-wrap">
-  <div class="dpad dpad-p1" id="dpad-p1">
-    <div></div>
-    <div class="dpad-btn" data-player="1" data-dir="0">▲</div>
-    <div></div>
-    <div class="dpad-btn" data-player="1" data-dir="3">◄</div>
-    <div class="dpad-btn dpad-center"></div>
-    <div class="dpad-btn" data-player="1" data-dir="1">►</div>
-    <div></div>
-    <div class="dpad-btn" data-player="1" data-dir="2">▼</div>
-    <div></div>
+  <div id="stick-outer">
+    <canvas id="stick-arc" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;width:100%;height:100%;"></canvas>
+    <div id="stick-nub"></div>
   </div>
 </div>
 
@@ -3264,48 +3277,116 @@ function steerP2(nd){
   const op=(p2.dir+2)%4;if(nd!==op)p2.qd=nd;
 }
 
-// ── D-PAD touch handling ──────────────────────────────────────────────────────
-const pressedBtns=new Set();
+// ── THUMBSTICK ────────────────────────────────────────────────────────────────
+const stickOuter=document.getElementById('stick-outer');
+const stickNub=document.getElementById('stick-nub');
+const stickArcCv=document.getElementById('stick-arc');
 
-function dpadDown(e){
+let stickActive=false;
+let stickOriginX=0,stickOriginY=0;   // center of outer ring in page coords
+let stickCurDir=-1;                   // current snapped direction (-1 = none)
+const STICK_DEAD=0.18;               // deadzone fraction of outer radius
+const STICK_MAX=0.42;                // nub travel as fraction of outer radius
+
+function getStickRadius(){
+  return stickOuter?stickOuter.offsetWidth/2:80;
+}
+
+function snapDir(dx,dy){
+  // Deadzone check
+  const r=getStickRadius();
+  const dist=Math.hypot(dx,dy);
+  if(dist/r<STICK_DEAD)return -1;
+  // Snap to cardinal: whichever axis has greater magnitude wins
+  return Math.abs(dx)>Math.abs(dy)?(dx>0?1:3):(dy>0?2:0);
+}
+
+function moveNub(dx,dy){
+  if(!stickNub)return;
+  const r=getStickRadius();
+  const dist=Math.hypot(dx,dy);
+  const travel=Math.min(dist,r*STICK_MAX);
+  const angle=Math.atan2(dy,dx);
+  const nx=Math.cos(angle)*travel;
+  const ny=Math.sin(angle)*travel;
+  stickNub.style.transform=`translate(calc(-50% + ${nx.toFixed(1)}px), calc(-50% + ${ny.toFixed(1)}px))`;
+}
+
+function resetNub(){
+  if(!stickNub)return;
+  stickNub.style.transform='translate(-50%,-50%)';
+  stickNub.classList.remove('active');
+  drawArc(-1);
+  stickCurDir=-1;
+}
+
+// Draw a glowing arc segment indicating the current direction
+function drawArc(dir){
+  if(!stickArcCv)return;
+  const el=stickOuter;
+  if(!el)return;
+  const sz=el.offsetWidth;
+  stickArcCv.width=sz*2;stickArcCv.height=sz*2; // 2x for crispness
+  const ac=stickArcCv.getContext('2d');
+  ac.clearRect(0,0,sz*2,sz*2);
+  if(dir<0)return;
+  const cx=sz,cy=sz,rad=sz*0.82;
+  // Arc spans 70° centered on the direction
+  const baseAngles=[Math.PI*1.5,0,Math.PI*0.5,Math.PI]; // up, right, down, left
+  const base=baseAngles[dir];
+  const span=Math.PI*(70/180);
+  ac.beginPath();
+  ac.arc(cx,cy,rad,base-span/2,base+span/2);
+  const grad=ac.createLinearGradient(0,0,sz*2,sz*2);
+  grad.addColorStop(0,'rgba(91,200,245,0.0)');
+  grad.addColorStop(0.5,'rgba(91,200,245,0.5)');
+  grad.addColorStop(1,'rgba(91,200,245,0.0)');
+  ac.strokeStyle=grad;
+  ac.lineWidth=sz*0.12;
+  ac.lineCap='round';
+  ac.stroke();
+}
+
+function onStickStart(e){
   e.preventDefault();
-  const touches=e.changedTouches||[e];
-  for(let i=0;i<touches.length;i++){
-    const t=touches[i];
-    const el=document.elementFromPoint(t.clientX,t.clientY);
-    if(!el||el.dataset.dir===undefined)continue;
-    const dir=parseInt(el.dataset.dir);
-    el.classList.add('pressed');pressedBtns.add(el);
-    if(gs==='playing'||gs==='countdown')steerP1(dir);
+  if(!stickOuter)return;
+  stickActive=true;
+  stickNub.classList.add('active');
+  const rect=stickOuter.getBoundingClientRect();
+  stickOriginX=rect.left+rect.width/2;
+  stickOriginY=rect.top+rect.height/2;
+  onStickMove(e);
+}
+
+function onStickMove(e){
+  e.preventDefault();
+  if(!stickActive)return;
+  const t=e.changedTouches?e.changedTouches[0]:e.touches[0];
+  if(!t)return;
+  const dx=t.clientX-stickOriginX;
+  const dy=t.clientY-stickOriginY;
+  moveNub(dx,dy);
+  const dir=snapDir(dx,dy);
+  if(dir!==stickCurDir){
+    stickCurDir=dir;
+    drawArc(dir);
+    if(dir>=0&&(gs==='playing'||gs==='countdown'))steerP1(dir);
   }
 }
 
-function dpadMove(e){
+function onStickEnd(e){
   e.preventDefault();
-  const touches=e.changedTouches||[e];
-  for(let i=0;i<touches.length;i++){
-    const t=touches[i];
-    const el=document.elementFromPoint(t.clientX,t.clientY);
-    if(!el||el.dataset.dir===undefined)continue;
-    const dir=parseInt(el.dataset.dir);
-    if(!pressedBtns.has(el)){el.classList.add('pressed');pressedBtns.add(el);}
-    if(gs==='playing')steerP1(dir);
-  }
+  stickActive=false;
+  resetNub();
 }
 
-function dpadUp(e){
-  e.preventDefault();
-  pressedBtns.forEach(el=>el.classList.remove('pressed'));
-  pressedBtns.clear();
+if(stickOuter){
+  stickOuter.addEventListener('touchstart',onStickStart,{passive:false});
+  stickOuter.addEventListener('touchmove',onStickMove,{passive:false});
+  stickOuter.addEventListener('touchend',onStickEnd,{passive:false});
+  stickOuter.addEventListener('touchcancel',onStickEnd,{passive:false});
 }
-
-const dpadEl=document.getElementById('dpad-p1');
-if(dpadEl){
-  dpadEl.addEventListener('touchstart',dpadDown,{passive:false});
-  dpadEl.addEventListener('touchmove',dpadMove,{passive:false});
-  dpadEl.addEventListener('touchend',dpadUp,{passive:false});
-  dpadEl.addEventListener('touchcancel',dpadUp,{passive:false});
-}
+// ── END THUMBSTICK ────────────────────────────────────────────────────────────
 
 // ── SWIPE on canvas ───────────────────────────────────────────────────────────
 let swipeStartX=0,swipeStartY=0,swipeActive=false;
