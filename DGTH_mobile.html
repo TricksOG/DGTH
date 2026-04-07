@@ -2,142 +2,213 @@
 <html><head><meta charset="UTF-8"><title>DGTH v3</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#07070e;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Courier New',monospace;overflow:hidden;}
+
+/* ── DESKTOP / LANDSCAPE: centered, original feel ── */
+body{
+  background:#07070e;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  min-height:100vh;
+  font-family:system-ui,-apple-system,sans-serif;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+}
 #bgc{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
-canvas#dgth{display:block;border:2px solid #2a2050;border-radius:18px;clip-path:inset(0 round 18px);cursor:pointer;transition:border-color 0.4s,box-shadow 0.4s;position:relative;z-index:1;touch-action:none;}
-#hint{color:#6a7a9a;font-size:12px;margin-top:8px;letter-spacing:1px;min-height:16px;text-align:center;position:relative;z-index:1;}
-
-/* ── MOBILE D-PAD ─────────────────────────────────────────────────────────── */
-#dpad-wrap{
-  display:none; /* shown only on touch devices via JS */
-  position:relative;z-index:2;
-  margin-top:10px;
-  width:100%;
-  align-items:center;
-  justify-content:center;
-  gap:0;
-  user-select:none;-webkit-user-select:none;
-}
-.dpad-zone{
-  display:flex;flex-direction:column;align-items:center;gap:4px;
-}
-.dpad-label{
-  font-size:10px;letter-spacing:2px;
-  margin-bottom:2px;
-  font-family:'Courier New',monospace;
-}
-.dpad{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  grid-template-rows:repeat(3,1fr);
-  gap:4px;
-  width:156px;height:156px;
-}
-.dpad-btn{
-  background:rgba(20,18,40,0.85);
-  border-radius:10px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:20px;
-  border:1.5px solid transparent;
-  transition:background 0.08s,transform 0.06s,border-color 0.08s;
-  -webkit-tap-highlight-color:transparent;
+#canvas-wrap{position:relative;z-index:1;display:inline-block;flex-shrink:0;}
+canvas#dgth{
+  display:block;
+  border:4px solid #2a2050;
+  border-radius:18px;
+  clip-path:inset(0 round 18px);
   cursor:pointer;
+  transition:border-color 0.4s,box-shadow 0.4s;
+  touch-action:none;
 }
-.dpad-btn:active,.dpad-btn.pressed{
-  transform:scale(0.88);
+#hint{
+  color:#6a7a9a;font-size:12px;margin-top:8px;
+  letter-spacing:1px;min-height:16px;
+  text-align:center;position:relative;z-index:1;
 }
-.dpad-center{
-  background:rgba(10,9,20,0.5);
-  border-radius:50%;
-  border:none;
-}
-/* C1 — blue tint */
-.dpad-p1 .dpad-btn{border-color:rgba(91,200,245,0.2);}
-.dpad-p1 .dpad-btn:active,.dpad-p1 .dpad-btn.pressed{
-  background:rgba(91,200,245,0.18);
-  border-color:rgba(91,200,245,0.7);
-  box-shadow:0 0 12px rgba(91,200,245,0.35);
-}
-.dpad-p1 .dpad-btn span{color:#5bc8f5;}
-/* C2 — amber tint */
-.dpad-p2 .dpad-btn{border-color:rgba(239,159,39,0.2);}
-.dpad-p2 .dpad-btn:active,.dpad-p2 .dpad-btn.pressed{
-  background:rgba(239,159,39,0.18);
-  border-color:rgba(239,159,39,0.7);
-  box-shadow:0 0 12px rgba(239,159,39,0.35);
-}
-.dpad-p2 .dpad-btn span{color:#ef9f27;}
+#dpad-wrap{display:none;}
+#mobile-hud{display:none;}
 
-/* Swipe hint overlay — shows briefly on first touch */
-#swipe-hint{transition:opacity 0.3s;}
+/* ── PORTRAIT TOUCH: full-screen column layout ── */
+@media (pointer:coarse) and (orientation:portrait){
+  body{
+    justify-content:flex-start;
+    height:100dvh;
+    overflow:hidden;
+  }
 
-/* Only show d-pad on touch screens */
-@media (pointer:coarse){
-  #dpad-wrap{display:flex;}
+  /* Canvas flush to top, full width, no rounding on sides */
+  #canvas-wrap{
+    width:100%;
+    flex-shrink:0;
+  }
+  canvas#dgth{
+    width:100% !important;
+    height:auto !important;
+    border-radius:0;
+    clip-path:none;
+    border-left:none;border-right:none;border-top:none;
+    border-bottom:1px solid #1a1a38;
+  }
+
+  /* Hide keyboard hint on mobile */
+  #hint{display:none;}
+
+  /* Mini HUD strip — score + timer at a glance */
+  #mobile-hud{
+    display:flex;
+    flex-shrink:0;
+    width:100%;
+    background:#06060f;
+    border-bottom:1px solid #14143a;
+    padding:6px 16px;
+    align-items:center;
+    justify-content:space-between;
+    z-index:2;
+    position:relative;
+  }
+  .mhud-score{
+    font-family:system-ui,-apple-system,sans-serif;
+    font-size:15px;
+    font-weight:bold;
+    letter-spacing:1px;
+  }
+  .mhud-timer{
+    font-family:system-ui,-apple-system,sans-serif;
+    font-size:13px;
+    color:#4a6a8a;
+    letter-spacing:2px;
+  }
+  .mhud-label{
+    font-size:9px;
+    letter-spacing:2px;
+    color:#3a4a68;
+    display:block;
+    margin-bottom:1px;
+  }
+
+  /* Thumbstick zone — fills all remaining space below canvas */
+  #dpad-wrap{
+    display:flex !important;
+    flex:1;
+    min-height:0;
+    width:100%;
+    background:#04040b;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    z-index:2;
+    user-select:none;-webkit-user-select:none;
+  }
+
+  /* Outer ring — sized to fill the control zone */
+  #stick-outer{
+    width:min(54vw, 44dvh, 240px);
+    height:min(54vw, 44dvh, 240px);
+    border-radius:50%;
+    border:1.5px solid rgba(91,200,245,0.14);
+    background:rgba(8,8,22,0.7);
+    position:relative;
+    display:flex;align-items:center;justify-content:center;
+  }
+  /* Cardinal tick marks */
+  #stick-outer::before{
+    content:'';
+    position:absolute;inset:0;
+    border-radius:50%;
+    background:
+      radial-gradient(ellipse 2px 18% at 50% 4%, rgba(91,200,245,0.25) 0%, transparent 100%),
+      radial-gradient(ellipse 2px 18% at 50% 96%, rgba(91,200,245,0.25) 0%, transparent 100%),
+      radial-gradient(ellipse 18% 2px at 4% 50%, rgba(91,200,245,0.25) 0%, transparent 100%),
+      radial-gradient(ellipse 18% 2px at 96% 50%, rgba(91,200,245,0.25) 0%, transparent 100%);
+  }
+  /* Inner nub */
+  #stick-nub{
+    width:38%;height:38%;
+    border-radius:50%;
+    background:radial-gradient(circle at 38% 38%, #1e2050, #0c0c28);
+    border:2px solid rgba(91,200,245,0.45);
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    transition:border-color 0.1s;
+    pointer-events:none;
+  }
+  #stick-nub.active{
+    border-color:rgba(91,200,245,0.9);
+    box-shadow:0 0 18px rgba(91,200,245,0.4);
+  }
+
+  /* Direction indicator arc — lights up the active quadrant */
+  #stick-dir-arc{
+    position:absolute;inset:0;border-radius:50%;pointer-events:none;opacity:0;
+    transition:opacity 0.1s;
+  }
+  #stick-dir-arc.show{opacity:1;}
+
+  /* Swipe hint */
+  #swipe-hint{transition:opacity 0.3s;}
+
+  /* On mobile, hide the 2P mode button */
+  .mode-2p-btn{display:none !important;}
 }
-/* Shrink for very small phones */
-@media (max-width:380px){
-  .dpad{width:128px;height:128px;}
-  .dpad-btn{font-size:16px;border-radius:8px;}
+
+/* Very small phones */
+@media (pointer:coarse) and (orientation:portrait) and (max-width:360px){
+  #stick-outer{width:min(62vw,38dvh,180px);height:min(62vw,38dvh,180px);}
 }
 </style></head><body>
 <canvas id="bgc"></canvas>
-<div style="position:relative;z-index:1;display:inline-block;">
+
+<!-- Canvas + swipe hint wrapper -->
+<div id="canvas-wrap">
   <canvas id="dgth" width="760" height="640"></canvas>
-  <!-- Swipe hint — shown briefly on first touch during play -->
-  <div id="swipe-hint" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:opacity 0.3s;opacity:0;">
+  <div id="swipe-hint" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;display:none;flex-direction:column;align-items:center;justify-content:center;gap:6px;opacity:0;">
     <div style="display:flex;align-items:center;gap:24px;">
-      <span style="color:rgba(91,200,245,0.55);font-size:22px;">◄</span>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-        <span style="color:rgba(91,200,245,0.55);font-size:22px;">▲</span>
-        <span style="font-family:'Courier New',monospace;font-size:10px;color:rgba(91,200,245,0.4);letter-spacing:2px;">SWIPE</span>
-        <span style="color:rgba(91,200,245,0.55);font-size:22px;">▼</span>
+      <span style="color:rgba(91,200,245,0.5);font-size:24px;">◄</span>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <span style="color:rgba(91,200,245,0.5);font-size:24px;">▲</span>
+        <span style="font-family:system-ui,-apple-system,sans-serif;font-size:10px;color:rgba(91,200,245,0.35);letter-spacing:3px;">SWIPE</span>
+        <span style="color:rgba(91,200,245,0.5);font-size:24px;">▼</span>
       </div>
-      <span style="color:rgba(91,200,245,0.55);font-size:22px;">►</span>
+      <span style="color:rgba(91,200,245,0.5);font-size:24px;">►</span>
     </div>
   </div>
 </div>
 
-<!-- ── MOBILE D-PAD ──────────────────────────────────────────────────────── -->
-<div id="dpad-wrap">
-  <!-- C1 D-pad (always present) -->
-  <div class="dpad-zone" id="dpad-zone-p1">
-    <div class="dpad-label" style="color:#5bc8f5;">C1</div>
-    <div class="dpad dpad-p1" id="dpad-p1">
-      <!-- row 1 -->
-      <div></div>
-      <div class="dpad-btn" data-player="1" data-dir="0"><span>▲</span></div>
-      <div></div>
-      <!-- row 2 -->
-      <div class="dpad-btn" data-player="1" data-dir="3"><span>◄</span></div>
-      <div class="dpad-btn dpad-center"></div>
-      <div class="dpad-btn" data-player="1" data-dir="1"><span>►</span></div>
-      <!-- row 3 -->
-      <div></div>
-      <div class="dpad-btn" data-player="1" data-dir="2"><span>▼</span></div>
-      <div></div>
-    </div>
+<!-- Mini HUD strip (portrait mobile only) -->
+<div id="mobile-hud">
+  <div>
+    <span class="mhud-label">YOU</span>
+    <span class="mhud-score" id="mhud-p1" style="color:#5bc8f5;">0</span>
   </div>
+  <div style="text-align:center;">
+    <span class="mhud-label" style="text-align:center;">&nbsp;</span>
+    <span class="mhud-timer" id="mhud-timer">3:00</span>
+  </div>
+  <div style="text-align:right;">
+    <span class="mhud-label" style="display:block;text-align:right;">AI</span>
+    <span class="mhud-score" id="mhud-p2" style="color:#ef9f27;">0</span>
+  </div>
+</div>
 
-  <!-- C2 D-pad (shown in 2P mode only) -->
-  <div class="dpad-zone" id="dpad-zone-p2" style="display:none;">
-    <div class="dpad-label" style="color:#ef9f27;">C2</div>
-    <div class="dpad dpad-p2" id="dpad-p2">
-      <div></div>
-      <div class="dpad-btn" data-player="2" data-dir="0"><span>▲</span></div>
-      <div></div>
-      <div class="dpad-btn" data-player="2" data-dir="3"><span>◄</span></div>
-      <div class="dpad-btn dpad-center"></div>
-      <div class="dpad-btn" data-player="2" data-dir="1"><span>►</span></div>
-      <div></div>
-      <div class="dpad-btn" data-player="2" data-dir="2"><span>▼</span></div>
-      <div></div>
-    </div>
+<!-- Thumbstick (portrait mobile only) -->
+<div id="dpad-wrap">
+  <div id="stick-outer">
+    <canvas id="stick-arc" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;width:100%;height:100%;"></canvas>
+    <div id="stick-nub"></div>
   </div>
 </div>
 
 <div id="hint"></div>
 <script>
+const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+const IS_PORTRAIT=()=>window.innerHeight>window.innerWidth;
 const cv=document.getElementById('dgth'),g=cv.getContext('2d');
 const W=760,H=640,COLS=38,ROWS=24,CS=20,GY=96;
 const DX=[0,1,0,-1],DY=[-1,0,1,0];
@@ -145,7 +216,7 @@ const UNLOCKS=[0,1000,3000,7000];
 const LOCK_FILL=['','#3a0808','#4a0000','#280014'];
 const LOCK_BDR=['','#9a2222','#cc1010','#9a0050'];
 const C1='#5bc8f5',C2='#ef9f27';
-const TX={head:'#e8f4ff',body:'#b8cce0',dim:'#7a90b0',faint:'#4a5a78',good:'#4ade80',warn:'#f5a623',bad:'#fb7185'};
+const TX={head:'#f0f8ff',body:'#c8daf0',dim:'#8aa4c8',faint:'#586880',good:'#4ade80',warn:'#f5a623',bad:'#fb7185'};
 const PUPS={
   BOOST:{col:'#22ff88',dark:'#0a3a1a',label:'BOOST',desc:'Speed surge 4s'},
   BOMB: {col:'#ff4444',dark:'#3a0000',label:'BOMB', desc:'Stuns opponent 2.5s'},
@@ -160,7 +231,7 @@ const BASE_PTYPES=PTYPES.filter(t=>t!=='HEALTH');
 // ── DIFFICULTY ──────────────────────────────────────────────────────────────
 const DIFFS=['NORMAL','HEROIC','MYTHIC','LEGENDARY'];
 const DIFF_CFG={
-  NORMAL:   {bfsBonus:0, noise:16, capTimer:8, pupRate:18, escapeStag:4.5, label:'NORMAL',    col:'#4ade80', aiSpd:1.0,  playerSpd:1.0,  voidRate:0,  voidSize:0, starMult:1.0, blurb:'Relaxed AI \xb7 forgiving, good for learning'},
+  NORMAL:   {bfsBonus:0, noise:26, capTimer:11, pupRate:13, escapeStag:7.0, label:'NORMAL',    col:'#4ade80', aiSpd:0.82, playerSpd:1.0,  voidRate:0,  voidSize:0, starMult:1.0, blurb:'Easygoing AI \xb7 forgiving capture timer \xb7 good for learning'},
   HEROIC:   {bfsBonus:1, noise:7,  capTimer:7, pupRate:18, escapeStag:2.5, label:'HEROIC',    col:'#4a9eff', aiSpd:1.15, playerSpd:1.0,  voidRate:0,  voidSize:0, starMult:1.0, blurb:'Faster, smarter AI \xb7 competitive matches'},
   MYTHIC:   {bfsBonus:1, noise:7,  capTimer:7, pupRate:28, escapeStag:2.5, label:'MYTHIC',    col:'#cc44ff', aiSpd:1.15, playerSpd:0.88, voidRate:15, voidSize:4, starMult:1.2, blurb:'Heroic AI + void pulses \xb7 you move slower \xb7 fewer power-ups'},
   LEGENDARY:{bfsBonus:1, noise:7,  capTimer:7, pupRate:40, escapeStag:2.5, label:'LEGENDARY', col:'#ef9f27', aiSpd:1.15, playerSpd:0.78, voidRate:8,  voidSize:7, starMult:1.4, blurb:'Heroic AI + frequent voids \xb7 heavily slowed \xb7 scarce power-ups'},
@@ -261,8 +332,8 @@ const LEVELS=[
 ];
 
 let fs=0.9;
-const F=(n,b)=>(b?'bold ':'')+Math.round(n*fs)+'px Courier New';
-const FS=(n,b)=>(b?'bold ':'')+Math.round(n*fs)+'px Arial,sans-serif';
+const F=(n,b)=>(b?'bold ':'')+Math.round(n*fs)+'px system-ui,-apple-system,sans-serif';
+const FS=(n,b)=>(b?'bold ':'')+Math.round(n*fs)+'px system-ui,-apple-system,sans-serif';
 const blend=(h1,h2,t)=>{
   const p=(h,i)=>parseInt(h.slice(1+i*2,3+i*2),16);
   return 'rgb('+[0,1,2].map(i=>Math.round(p(h1,i)+(p(h2,i)-p(h1,i))*Math.max(0,Math.min(1,t)))).join(',')+')'
@@ -357,7 +428,7 @@ function drawScorePopups(){
     g.globalAlpha=Math.min(1,t*3)*0.95;
     g.fillStyle=p.col;
     const sz=Math.round(8+t*5);
-    g.font='bold '+sz+'px Arial';
+    g.font='bold '+sz+'px system-ui,-apple-system,sans-serif';
     g.textAlign='center';
     g.fillText(p.txt,Math.round(p.x),Math.round(p.y));
   });
@@ -933,16 +1004,16 @@ function drawBrief(){
     if(item.t==='gap'){y+=st.gap+4;return;}
     if(item.t==='prim'){
       if(y>-30&&y<H+30){
-        g.font=(st.bold?'bold ':'')+st.size+'px Courier New';
+        g.font=(st.bold?'bold ':'')+st.size+'px system-ui,-apple-system,sans-serif';
         g.fillStyle='#5bc8f5';g.textAlign='left';g.fillText(item.s,PX,y);
-        g.fillStyle=st.col;g.font=st.size+'px Arial,sans-serif';
+        g.fillStyle=st.col;g.font=st.size+'px system-ui,-apple-system,sans-serif';
         const label=item.s+' ';const lw=g.measureText(item.s+'  ').width+20;
         wrapText(item.d,PX+lw,y,PW-lw,st.size+st.gap+4,st.col);
       }
       y+=st.size+st.gap+4;return;
     }
     if(y>-60&&y<H+60){
-      const font=(st.bold?'bold ':'')+Math.max(st.size,9)+'px '+(st.size>=14?'Courier New':'Arial,sans-serif');
+      const font=(st.bold?'bold ':'')+Math.max(st.size,9)+'px system-ui,-apple-system,sans-serif';
       g.font=font;g.textAlign='left';
       const prefix=item.prefix||'';
       const txt=prefix+(item.s||'');
@@ -973,6 +1044,10 @@ function totalBriefHeight(){
 }
 
 function render(){
+  // Apply physical scale transform — maps logical 760x640 coords to the
+  // actual pixel buffer (scale * dpr). All drawing code below is unchanged.
+  const ps=canvasScale*(window.devicePixelRatio||1);
+  g.setTransform(ps,0,0,ps,0,0);
   g.clearRect(0,0,W,H);
   btns=[];
   if(gs==='brief'){drawBrief();return;}
@@ -981,7 +1056,7 @@ function render(){
   if(gs==='raidselect'){drawraidselect();return;}
   if(gs==='paused'||gs==='end')btns=[];
 
-  // Apply screen shake
+  // Screen shake — translate on top of existing ps transform
   g.save();
   if(shakeMag>0.5){
     const sx=(Math.random()-0.5)*shakeMag*2,sy=(Math.random()-0.5)*shakeMag*2;
@@ -1000,7 +1075,7 @@ function render(){
   else if(gs==='paused')drawpause();
   else if(gs==='end')drawend();
 
-  g.restore();
+  g.restore(); // back to ps transform, no shake
   drawVignette();
 }
 
@@ -1048,7 +1123,7 @@ function drawgrid(){
         if(cell.uf>0)col=blend(col,'#ff3333',Math.min(1,cell.uf*0.6));
         g.fillStyle=col;g.fillRect(x,y,CS,CS);
         g.strokeStyle=LOCK_BDR[cell.lock];g.lineWidth=0.7;g.strokeRect(x+0.5,y+0.5,CS-1,CS-1);
-        g.fillStyle=LOCK_BDR[cell.lock];g.font='6px Courier New';g.textAlign='center';
+        g.fillStyle=LOCK_BDR[cell.lock];g.font='6px system-ui,-apple-system,sans-serif';g.textAlign='center';
         g.fillText('T'+cell.lock,x+CS/2,y+CS/2+2);
       } else {
         const pal=cell.v?(cell.owner===2?t.vp2:t.vp1):t.unvis;
@@ -1102,7 +1177,7 @@ function drawpups(){
     // Label with glow
     g.globalAlpha=0.95;
     g.shadowColor=pd.col;g.shadowBlur=6;
-    g.fillStyle=pd.col;g.font='bold 8px Arial';g.textAlign='center';
+    g.fillStyle=pd.col;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
     g.fillText(pd.label.slice(0,4),cx,cy+3);
     g.shadowBlur=0;
 
@@ -1177,8 +1252,8 @@ function drawcountdown(){
   g.textAlign='center';
   if(num>=1){
     const col=num===3?TX.warn:num===2?C2:TX.good;
-    g.fillStyle=col;g.font='bold '+sz+'px Courier New';g.fillText(num,W/2,H/2+sz*0.35);
-  } else {g.fillStyle=TX.good;g.font='bold '+Math.round(90*fs)+'px Courier New';g.fillText('GO!',W/2,H/2+30);
+    g.fillStyle=col;g.font='bold '+sz+'px system-ui,-apple-system,sans-serif';g.fillText(num,W/2,H/2+sz*0.35);
+  } else {g.fillStyle=TX.good;g.font='bold '+Math.round(90*fs)+'px system-ui,-apple-system,sans-serif';g.fillText('GO!',W/2,H/2+30);
     // GO! burst particles
     if(countdown>-0.1&&countdown<0.05){
       spawnConfetti(W/2,H/2,[C1,C2,TX.good,TX.warn,'#ffffff'],40);
@@ -1636,6 +1711,13 @@ function drawCube3D(cx,cy,sz,t){
 
 function drawtitle(){
   g.fillStyle='#07070e';g.fillRect(0,0,W,H);
+  // Radial glow — centered, more pronounced
+  const grad=g.createRadialGradient(W/2,H/2,40,W/2,H/2,W*0.78);
+  grad.addColorStop(0,'rgba(48,36,120,0.82)');
+  grad.addColorStop(0.35,'rgba(28,20,80,0.58)');
+  grad.addColorStop(0.7,'rgba(14,10,40,0.28)');
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=grad;g.fillRect(0,0,W,H);
   const lh=Math.round; // shorthand
   const pad=Math.round(14*fs); // base padding unit scales with font
 
@@ -1724,12 +1806,13 @@ function drawtitle(){
   const totalStarsM=campaignStars.reduce((s,n)=>s+n,0);
   const raidStarReq=8;
   const raidUnlockable=totalStarsM>=raidStarReq;
+  const isMobilePortrait=IS_TOUCH&&IS_PORTRAIT();
   g.font=F(10,true); // set font before measuring
   const modeItems=[
-    {lbl:'SOLO',       key:'solo',     col:'#4ade80',dark:'#061a08'},  // green  — common
-    {lbl:'2P LOCAL',   key:'2p',       col:'#4a9eff',dark:'#06162a'},  // blue   — rare
-    {lbl:'VS AI',      key:'vsai',     col:'#bb44ff',dark:'#180628'},  // purple — epic
-    {lbl:'CAMPAIGN',   key:'campaign', col:'#ef9f27',dark:'#1a0e00'},  // orange — legendary
+    {lbl:'SOLO',       key:'solo',     col:'#4ade80',dark:'#061a08'},
+    ...(isMobilePortrait?[]:[{lbl:'2P LOCAL',key:'2p',col:'#4a9eff',dark:'#06162a'}]),
+    {lbl:'VS AI',      key:'vsai',     col:'#bb44ff',dark:'#180628'},
+    {lbl:'CAMPAIGN',   key:'campaign', col:'#ef9f27',dark:'#1a0e00'},
     {lbl:'\u2694 RAIDS',key:'_raids',  col:'#ff44aa',dark:'#280018',raid:true,avail:raidUnlockable},
   ];
   const mBtns=modeItems.map(it=>({...it,bw:Math.ceil(g.measureText(it.lbl).width)+22}));
@@ -1771,7 +1854,7 @@ function drawtitle(){
     const ty=colHdrY+Math.round(colPad+i*itemStep);
     g.fillStyle=unlk?TX.head:'#334';g.font=FS(10,unlk);g.textAlign='left';
     g.fillText((i+1)+'. '+lv.name,48,ty);
-    if(unlk){for(let s=0;s<3;s++){g.fillStyle=s<stars?TX.warn:'#222';g.font='10px Arial';g.textAlign='left';g.fillText('\u2605',48+120+s*14,ty);}}
+    if(unlk){for(let s=0;s<3;s++){g.fillStyle=s<stars?TX.warn:'#222';g.font='10px system-ui,-apple-system,sans-serif';g.textAlign='left';g.fillText('\u2605',48+120+s*14,ty);}}
     else{g.fillStyle='#334';g.font=FS(9,false);g.fillText('[LOCKED]',48+120,ty);}
   });
 
@@ -1782,7 +1865,7 @@ function drawtitle(){
     const pd=PUPS[type],sx=398,ty=colHdrY+Math.round(colPad+i*itemStep);
     g.fillStyle=pd.dark;g.fillRect(sx,ty-9,12,11);
     g.strokeStyle=pd.col;g.lineWidth=0.7;g.strokeRect(sx,ty-9,12,11);
-    g.fillStyle=pd.col;g.font='bold 6px Arial';g.textAlign='center';g.fillText(pd.label.slice(0,3),sx+6,ty-1);
+    g.fillStyle=pd.col;g.font='bold 6px system-ui,-apple-system,sans-serif';g.textAlign='center';g.fillText(pd.label.slice(0,3),sx+6,ty-1);
     g.fillStyle=TX.body;g.font=FS(9.5,false);g.textAlign='left';
     g.fillText(pd.label+' \u2014 '+pd.desc,sx+16,ty);
   });
@@ -1790,7 +1873,7 @@ function drawtitle(){
   {const pd=PUPS.HEALTH,sx=398,ty=colHdrY+Math.round(colPad+BASE_PTYPES.length*itemStep);
   g.fillStyle='#150010';g.fillRect(sx,ty-9,12,11);
   g.strokeStyle='#441028';g.lineWidth=0.6;g.strokeRect(sx,ty-9,12,11);
-  g.fillStyle='#662244';g.font='bold 6px Arial';g.textAlign='center';g.fillText('+HP',sx+6,ty-1);
+  g.fillStyle='#662244';g.font='bold 6px system-ui,-apple-system,sans-serif';g.textAlign='center';g.fillText('+HP',sx+6,ty-1);
   g.fillStyle='#3a2030';g.font=FS(9.5,false);g.textAlign='left';
   g.fillText(pd.label+' \u2014 '+pd.desc,sx+16,ty);}
   cy+=colH+Math.round(33+4*fs); // 33px breathing room above start button
@@ -1884,7 +1967,7 @@ function drawlevelselect(){
 
     // Stars
     for(let s=0;s<3;s++){
-      g.fillStyle=s<stars?TX.warn:'#222';g.font='18px Arial';g.textAlign='left';
+      g.fillStyle=s<stars?TX.warn:'#222';g.font='18px system-ui,-apple-system,sans-serif';g.textAlign='left';
       g.fillText('\u2605',bx+bw-80+s*24,by+30);
     }
 
@@ -1967,23 +2050,23 @@ function drawhud(){
     const rd=currentRaid;
     if(p1.hp<=0){
       g.fillStyle='rgba(255,0,0,0.16)';g.fillRect(0,GY,W/2,ROWS*CS);
-      g.fillStyle='rgba(255,80,80,0.7)';g.font='bold 9px Arial';g.textAlign='center';
+      g.fillStyle='rgba(255,80,80,0.7)';g.font='bold 9px system-ui,-apple-system,sans-serif';g.textAlign='center';
       g.fillText('C1 FALLEN',W/4,GY+20);
     }
     if(gameMode!=='solo'&&p2.hp<=0){
       g.fillStyle='rgba(255,0,0,0.16)';g.fillRect(W/2,GY,W/2,ROWS*CS);
-      g.fillStyle='rgba(255,80,80,0.7)';g.font='bold 9px Arial';g.textAlign='center';
+      g.fillStyle='rgba(255,80,80,0.7)';g.font='bold 9px system-ui,-apple-system,sans-serif';g.textAlign='center';
       g.fillText('C2 FALLEN',W*3/4,GY+20);
     }
     // Boss name + elapsed — now has the whole center column to breathe
     g.textAlign='center';
-    g.fillStyle=rd.bossGlow;g.font='bold '+Math.round(11*fs)+'px Courier New';
+    g.fillStyle=rd.bossGlow;g.font='bold '+Math.round(11*fs)+'px system-ui,-apple-system,sans-serif';
     g.fillText('\u2694 '+rd.name+' \u2694',W/2,26);
     const mins=Math.floor(raidElapsed/60),secs=Math.floor(raidElapsed%60).toString().padStart(2,'0');
     g.fillStyle=boss.enraged?TX.bad:TX.dim;g.font=FS(9,false);
     g.fillText((boss.enraged?'\u26a1 ENRAGE \u26a1  ':'ELAPSED  ')+mins+':'+secs,W/2,46);
     if(currentRaid.id===2&&boss.phase>1){
-      g.fillStyle=['',TX.good,'#ff8800',TX.bad][boss.phase];g.font='bold 9px Arial';
+      g.fillStyle=['',TX.good,'#ff8800',TX.bad][boss.phase];g.font='bold 9px system-ui,-apple-system,sans-serif';
       g.fillText('\u25b6 PHASE '+boss.phase,W/2,63);
     }
   }
@@ -2005,7 +2088,7 @@ function drawhud(){
     g.fillStyle=hc1;g.fillRect(hbx1,hby,Math.round(hbw1*hp1Pct),hbh);
     g.fillStyle='rgba(0,0,0,0.45)';g.fillRect(hbx1,hby,hbw1,hbh);
     g.strokeStyle=hc1;g.lineWidth=1;g.strokeRect(hbx1,hby,hbw1,hbh);
-    g.fillStyle=hp1>0?hc1:'#884444';g.font='bold 8px Courier New';g.textAlign='center';
+    g.fillStyle=hp1>0?hc1:'#884444';g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
     g.fillText(hp1>0?'C1 \u2665 '+hp1+'/'+MAX_HP:'C1 \u2020 FALLEN',hbx1+hbw1/2,hby+11);
     // Coverage bar — centered, same height as HP bars
     const WIN_HUD={NORMAL:0.68,HEROIC:0.74,MYTHIC:0.80,LEGENDARY:0.86};
@@ -2020,7 +2103,7 @@ function drawhud(){
     g.fillStyle='rgba(0,0,0,0.45)';g.fillRect(cbx,hby,cbw,hbh);
     g.strokeStyle=covCol;g.lineWidth=1;g.strokeRect(cbx,hby,cbw,hbh);
     g.fillStyle='#fff';g.fillRect(cbx+Math.round(cbw*winPct)-1,hby,2,hbh); // threshold tick
-    g.fillStyle=covFrac>=winPct?TX.good:'#ccc';g.font='bold 8px Courier New';g.textAlign='center';
+    g.fillStyle=covFrac>=winPct?TX.good:'#ccc';g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
     g.fillText(Math.round(covFrac*100)+'% / '+Math.round(winPct*100)+'%',cbx+cbw/2,hby+11);
     // P2 HP (duo only)
     if(gameMode!=='solo'){
@@ -2031,7 +2114,7 @@ function drawhud(){
       g.fillStyle=hc2;g.fillRect(hbx2,hby,Math.round(hbw2*hp2Pct),hbh);
       g.fillStyle='rgba(0,0,0,0.45)';g.fillRect(hbx2,hby,hbw2,hbh);
       g.strokeStyle=hc2;g.lineWidth=1;g.strokeRect(hbx2,hby,hbw2,hbh);
-      g.fillStyle=hp2>0?hc2:'#884444';g.font='bold 8px Courier New';g.textAlign='center';
+      g.fillStyle=hp2>0?hc2:'#884444';g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
       g.fillText(hp2>0?'C2 \u2665 '+hp2+'/'+MAX_HP:'C2 \u2020 FALLEN',hbx2+hbw2/2,hby+11);
     }
   }
@@ -2086,7 +2169,7 @@ function drawBoss(){
   });
   // Boss name
   const fsize=Math.max(7,Math.round(Math.min(bw,bh)*0.18));
-  g.fillStyle=rd.bossGlow;g.font=`bold ${fsize}px Courier New`;g.textAlign='center';
+  g.fillStyle=rd.bossGlow;g.font=`bold ${fsize}px system-ui,-apple-system,sans-serif`;g.textAlign='center';
   g.fillText(rd.name,bx+bw/2,by+bh/2+fsize*0.35);
 
   // ── Vorrax — Void Breath warning (3-cell wide) ──
@@ -2103,7 +2186,7 @@ function drawBoss(){
       }
       const dy2=GY+boss.dbDir.idx*CS+CS/2;
       g.beginPath();g.moveTo(0,dy2);g.lineTo(W,dy2);g.stroke();
-      g.fillStyle=`rgba(255,180,0,${fade*0.8})`;g.font='bold 9px Arial';g.textAlign='right';
+      g.fillStyle=`rgba(255,180,0,${fade*0.8})`;g.font='bold 9px system-ui,-apple-system,sans-serif';g.textAlign='right';
       g.fillText('VOID BREATH \xb13',W-4,dy2-3);
     } else {
       for(let o=-1;o<=1;o++){
@@ -2122,7 +2205,7 @@ function drawBoss(){
     const wx=c*CS,wy=GY+r*CS;
     g.fillStyle='#1a0030';g.fillRect(wx,wy,CS,CS);
     g.strokeStyle='#9922cc';g.lineWidth=1;g.strokeRect(wx+0.5,wy+0.5,CS-1,CS-1);
-    g.fillStyle='#dd66ff';g.font='bold 7px Arial';g.textAlign='center';g.fillText('W',wx+CS/2,wy+CS/2+3);
+    g.fillStyle='#dd66ff';g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='center';g.fillText('W',wx+CS/2,wy+CS/2+3);
   });
 
   // ── C'Thun — Eye Beam ──
@@ -2145,7 +2228,7 @@ function drawBoss(){
     const tx=t.c*CS,ty=GY+t.r*CS;
     g.fillStyle='#001a08';g.fillRect(tx,ty,CS,CS);
     g.strokeStyle='#00aa44';g.lineWidth=1;g.strokeRect(tx+0.5,ty+0.5,CS-1,CS-1);
-    g.fillStyle='#00ff66';g.font='bold 7px Arial';g.textAlign='center';g.fillText('T',tx+CS/2,ty+CS/2+3);
+    g.fillStyle='#00ff66';g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='center';g.fillText('T',tx+CS/2,ty+CS/2+3);
   });
 
   // ── C'Thun — Corruption warning ──
@@ -2153,7 +2236,7 @@ function drawBoss(){
     const fade=Math.min(1,boss.corruptActive/0.5);
     g.fillStyle=`rgba(80,0,160,${fade*0.18})`;g.fillRect(0,GY,W,ROWS*CS);
     if(Math.sin(t*8)>0){
-      g.fillStyle=`rgba(180,80,255,${fade*0.7})`;g.font='bold 11px Arial';g.textAlign='center';
+      g.fillStyle=`rgba(180,80,255,${fade*0.7})`;g.font='bold 11px system-ui,-apple-system,sans-serif';g.textAlign='center';
       g.fillText('CORRUPTION — CONTROLS INVERTED',W/2,GY+18);
     }
   }
@@ -2193,7 +2276,7 @@ function drawBoss(){
     const fade=Math.min(1,boss.darkActive/0.6);
     g.fillStyle=`rgba(0,0,0,${0.88*fade})`;g.fillRect(0,GY,W,ROWS*CS);
     // Show countdown
-    g.fillStyle=`rgba(255,50,0,${fade*0.9})`;g.font='bold 10px Courier New';g.textAlign='center';
+    g.fillStyle=`rgba(255,50,0,${fade*0.9})`;g.font='bold 10px system-ui,-apple-system,sans-serif';g.textAlign='center';
     g.fillText('DARKNESS  '+boss.darkActive.toFixed(1)+'s',W/2,GY+16);
     // Still draw boss glow through darkness
     g.fillStyle=`rgba(${hexRGB(rd.bossGlow)},${0.3*fade})`;g.fillRect(bx,by,bw,bh);
@@ -2247,23 +2330,23 @@ function drawraidselect(){
       g.fillStyle=unlk?rd.bossDark:'#0a0a14';g.fillRect(mgx+dc*csz,mgy+dr*csz,csz-1,csz-1);
       g.strokeStyle=unlk?rd.bossCol:'#2a2440';g.lineWidth=0.5;g.strokeRect(mgx+dc*csz,mgy+dr*csz,csz-1,csz-1);
     }
-    g.fillStyle=unlk?rd.bossGlow:'#2a2440';g.font='bold 7px Courier New';g.textAlign='center';
+    g.fillStyle=unlk?rd.bossGlow:'#2a2440';g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='center';
     g.fillText(rd.bossW+'x'+rd.bossH,mgx+rd.bossW*csz/2,mgy+rd.bossH*csz+9);
 
     const tx=bx+14;
     // Name + title (all fixed px to avoid fs overlap)
-    g.fillStyle=unlk?rd.bossGlow:TX.faint;g.font='bold 11px Courier New';g.textAlign='left';
+    g.fillStyle=unlk?rd.bossGlow:TX.faint;g.font='bold 11px system-ui,-apple-system,sans-serif';g.textAlign='left';
     g.fillText((i+1)+'. '+rd.name,tx,by+18);
-    g.fillStyle=unlk?TX.dim:TX.faint;g.font='italic 8px Arial';
+    g.fillStyle=unlk?TX.dim:TX.faint;g.font='italic 8px system-ui,-apple-system,sans-serif';
     g.fillText(rd.title,tx,by+30);
-    g.fillStyle=unlk?TX.body:TX.faint;g.font='8px Arial';
+    g.fillStyle=unlk?TX.body:TX.faint;g.font='8px system-ui,-apple-system,sans-serif';
     g.fillText(rd.lore,tx,by+42);
 
     // Abilities — 14px line gap, start at y+58
     rd.abilities.forEach((ab,ai)=>{
-      g.fillStyle=unlk?TX.warn:TX.faint;g.font='bold 8px Arial';g.textAlign='left';
+      g.fillStyle=unlk?TX.warn:TX.faint;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='left';
       g.fillText('\u25b6 '+ab,tx,by+58+ai*14);
-      g.fillStyle=unlk?TX.dim:TX.faint;g.font='8px Arial';
+      g.fillStyle=unlk?TX.dim:TX.faint;g.font='8px system-ui,-apple-system,sans-serif';
       g.fillText(rd.abilityDescs[ai],tx+78,by+58+ai*14);
     });
 
@@ -2275,7 +2358,7 @@ function drawraidselect(){
       ' \xb7 Wipe at '+(rd.devourLimit*100|0)+'% devoured',
       tx,by+bh-26);
 
-    if(done){g.fillStyle=TX.good;g.font='bold 8px Arial';g.textAlign='right';g.fillText('\u2713 COMPLETED',bx+bw-10,by+20);}
+    if(done){g.fillStyle=TX.good;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='right';g.fillText('\u2713 COMPLETED',bx+bw-10,by+20);}
 
     if(unlk){
       // Solo / Duo toggle
@@ -2284,7 +2367,7 @@ function drawraidselect(){
         const mbx=tx+bi*76,mby=by+bh-20,mbw=70,mbh=16;
         g.fillStyle=on?'#0e1e2a':'#080812';g.fillRect(mbx,mby,mbw,mbh);
         g.strokeStyle=on?rd.bossCol:'#2a2440';g.lineWidth=on?1.2:0.6;g.strokeRect(mbx,mby,mbw,mbh);
-        g.fillStyle=on?rd.bossGlow:TX.dim;g.font='bold 7px Arial';g.textAlign='center';
+        g.fillStyle=on?rd.bossGlow:TX.dim;g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='center';
         g.fillText(lbl,mbx+mbw/2,mby+11);
         mkbtn(mbx,mby,mbw,mbh,()=>{gameMode=setSolo?'solo':'2p';});
       });
@@ -2296,17 +2379,17 @@ function drawraidselect(){
       const scaledMove=(rd.moveInterval*sm2).toFixed(1)+'s';
       const scaledDmg=dm===1?'1×':(dm+'×');
       g.fillStyle=difficulty==='NORMAL'?TX.dim:difficulty==='HEROIC'?'#4a9eff':difficulty==='MYTHIC'?'#cc44ff':'#ef9f27';
-      g.font='bold 7px Arial';g.textAlign='left';
+      g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='left';
       g.fillText(difficulty+': move '+scaledMove+' \xb7 dmg '+scaledDmg+' \xb7 need '+WIN_MAP[difficulty]+'% coverage',tx+160,by+bh-12);
       // Enter Raid button
       const ebx=bx+bw-172,eby=by+bh-22,ebw=160,ebh=18;
       g.fillStyle='#120820';g.fillRect(ebx,eby,ebw,ebh);
       g.strokeStyle=rd.bossCol;g.lineWidth=1.5;g.strokeRect(ebx,eby,ebw,ebh);
-      g.fillStyle=rd.bossGlow;g.font='bold 8px Arial';g.textAlign='center';
+      g.fillStyle=rd.bossGlow;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
       g.fillText('\u2694 ENTER RAID \u2014 '+rd.name,ebx+ebw/2,eby+12);
       mkbtn(ebx,eby,ebw,ebh,()=>{initRaid(i);});
     } else {
-      g.fillStyle=TX.faint;g.font='bold 8px Arial';g.textAlign='center';
+      g.fillStyle=TX.faint;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
       const lockMsg=i===0?'[LOCKED \u2014 COMPLETE PREVIOUS RAID]':'[LOCKED \u2014 COMPLETE RAID '+i+' FIRST]';
       g.fillText(lockMsg,bx+bw/2,by+bh/2+4);
     }
@@ -2477,7 +2560,7 @@ function drawend(){
     const stars=calcStars();
     g.textAlign='center';
     for(let s=0;s<3;s++){
-      g.fillStyle=s<stars?TX.warn:'#222';g.font='32px Arial';
+      g.fillStyle=s<stars?TX.warn:'#222';g.font='32px system-ui,-apple-system,sans-serif';
       g.fillText('\u2605',W/2-36+s*36,H/2-58);
     }
     const msgs=['Better luck next time — try again!','Level cleared! Keep traversing.','Perfect run — maximum traversal depth!'];
@@ -3047,12 +3130,29 @@ function resizeBg(){
   bgH=bgc.height=window.innerHeight;
 }
 resizeBg();
+let canvasScale=1; // tracks current CSS scale for render transform
+
 function scaleCanvas(){
-  const scaleX=(window.innerWidth*0.96)/W;
-  const scaleY=(window.innerHeight*0.94)/H;
-  const scale=Math.min(scaleX,scaleY,2.0); // cap at 2× for very large monitors
+  const dpr=window.devicePixelRatio||1;
+  const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+  const isPortrait=window.innerHeight>window.innerWidth;
+  let scale;
+  if(isTouch&&isPortrait){
+    // Canvas gets at most 56% of screen height, full width — whichever is tighter
+    const maxCanvasH=window.innerHeight*0.56;
+    const scaleByW=window.innerWidth/W;
+    const scaleByH=maxCanvasH/H;
+    scale=Math.min(scaleByW,scaleByH);
+  } else {
+    const scaleX=(window.innerWidth*0.96)/W;
+    const scaleY=(window.innerHeight*0.94)/H;
+    scale=Math.min(scaleX,scaleY,2.0);
+  }
+  canvasScale=scale;
   cv.style.width=Math.round(W*scale)+'px';
   cv.style.height=Math.round(H*scale)+'px';
+  cv.width=Math.round(W*scale*dpr);
+  cv.height=Math.round(H*scale*dpr);
 }
 scaleCanvas();
 window.addEventListener('resize',()=>{resizeBg();scaleCanvas();});
@@ -3141,19 +3241,20 @@ function updateBorderAnim(now){
   const r=lerp(seg[0][0],seg[1][0],seg[2]);
   const gr=lerp(seg[0][1],seg[1][1],seg[2]);
   const b=lerp(seg[0][2],seg[1][2],seg[2]);
-  const glow=Math.round(4+p2*10);
-  const alpha=(0.3+p2*0.35).toFixed(2);
+  const glow=Math.round(10+p2*18);
+  const alpha=(0.45+p2*0.4).toFixed(2);
   cv.style.borderColor=`rgb(${r},${gr},${b})`;
-  cv.style.boxShadow=`0 0 ${glow}px rgba(${r},${gr},${b},${alpha})`;
+  cv.style.boxShadow=`0 0 ${glow}px rgba(${r},${gr},${b},${alpha}), inset 0 0 ${Math.round(glow*0.4)}px rgba(${r},${gr},${b},0.12)`;
   drawBg(now,r,gr,b);
 }
 
-function loop(now){update(now);updateBorderAnim(now);render();updateDpadVisibility();requestAnimationFrame(loop);}
+function loop(now){update(now);updateBorderAnim(now);render();updateMobileUI();requestAnimationFrame(loop);}
 requestAnimationFrame(loop);
 
 // ── MOBILE CONTROLS ───────────────────────────────────────────────────────────
+// IS_TOUCH and IS_PORTRAIT() are defined at top of script
 
-// Helpers to steer each player (mirrors the keyboard steer logic)
+// Steer P1 (only player on mobile)
 function steerP1(nd){
   if(nd===undefined||p1.cap||p1.stunned>0)return;
   const op=(p1.dir+2)%4;if(nd!==op)p1.qd=nd;
@@ -3163,68 +3264,120 @@ function steerP2(nd){
   const op=(p2.dir+2)%4;if(nd!==op)p2.qd=nd;
 }
 
-// ── D-PAD touch handling ─────────────────────────────────────────────────────
-// Track which pointer is held on which button for visual feedback
-const pressedBtns=new Set();
+// ── THUMBSTICK ────────────────────────────────────────────────────────────────
+const stickOuter=document.getElementById('stick-outer');
+const stickNub=document.getElementById('stick-nub');
+const stickArcCv=document.getElementById('stick-arc');
 
-function dpadDown(e){
-  e.preventDefault();
-  const touch=e.changedTouches?e.changedTouches[0]:e;
-  const el=document.elementFromPoint(touch.clientX,touch.clientY);
-  if(!el||!el.dataset.dir)return;
-  const dir=parseInt(el.dataset.dir),player=parseInt(el.dataset.player);
-  el.classList.add('pressed');
-  pressedBtns.add(el);
-  if(gs==='playing'||gs==='countdown'){
-    if(player===1)steerP1(dir);
-    else if(player===2)steerP2(dir);
-  } else {
-    // On menus, d-pad taps route through the existing click system
-    const r=cv.getBoundingClientRect();
-    // noop — menus use click on canvas which already handles touch
-  }
+let stickActive=false;
+let stickOriginX=0,stickOriginY=0;   // center of outer ring in page coords
+let stickCurDir=-1;                   // current snapped direction (-1 = none)
+const STICK_DEAD=0.18;               // deadzone fraction of outer radius
+const STICK_MAX=0.42;                // nub travel as fraction of outer radius
+
+function getStickRadius(){
+  return stickOuter?stickOuter.offsetWidth/2:80;
 }
 
-function dpadMove(e){
-  e.preventDefault();
-  // Allow sliding finger across d-pad buttons
-  const touches=e.changedTouches||[e];
-  for(let i=0;i<touches.length;i++){
-    const t=touches[i];
-    const el=document.elementFromPoint(t.clientX,t.clientY);
-    if(!el||!el.dataset.dir)continue;
-    const dir=parseInt(el.dataset.dir),player=parseInt(el.dataset.player);
-    if(!pressedBtns.has(el)){
-      el.classList.add('pressed');
-      pressedBtns.add(el);
-    }
-    if(gs==='playing'){
-      if(player===1)steerP1(dir);
-      else if(player===2)steerP2(dir);
-    }
-  }
+function snapDir(dx,dy){
+  // Deadzone check
+  const r=getStickRadius();
+  const dist=Math.hypot(dx,dy);
+  if(dist/r<STICK_DEAD)return -1;
+  // Snap to cardinal: whichever axis has greater magnitude wins
+  return Math.abs(dx)>Math.abs(dy)?(dx>0?1:3):(dy>0?2:0);
 }
 
-function dpadUp(e){
-  e.preventDefault();
-  pressedBtns.forEach(el=>el.classList.remove('pressed'));
-  pressedBtns.clear();
+function moveNub(dx,dy){
+  if(!stickNub)return;
+  const r=getStickRadius();
+  const dist=Math.hypot(dx,dy);
+  const travel=Math.min(dist,r*STICK_MAX);
+  const angle=Math.atan2(dy,dx);
+  const nx=Math.cos(angle)*travel;
+  const ny=Math.sin(angle)*travel;
+  stickNub.style.transform=`translate(calc(-50% + ${nx.toFixed(1)}px), calc(-50% + ${ny.toFixed(1)}px))`;
 }
 
-// Attach to both D-pads
-['dpad-p1','dpad-p2'].forEach(id=>{
-  const el=document.getElementById(id);
+function resetNub(){
+  if(!stickNub)return;
+  stickNub.style.transform='translate(-50%,-50%)';
+  stickNub.classList.remove('active');
+  drawArc(-1);
+  stickCurDir=-1;
+}
+
+// Draw a glowing arc segment indicating the current direction
+function drawArc(dir){
+  if(!stickArcCv)return;
+  const el=stickOuter;
   if(!el)return;
-  el.addEventListener('touchstart',dpadDown,{passive:false});
-  el.addEventListener('touchmove',dpadMove,{passive:false});
-  el.addEventListener('touchend',dpadUp,{passive:false});
-  el.addEventListener('touchcancel',dpadUp,{passive:false});
-});
+  const sz=el.offsetWidth;
+  stickArcCv.width=sz*2;stickArcCv.height=sz*2; // 2x for crispness
+  const ac=stickArcCv.getContext('2d');
+  ac.clearRect(0,0,sz*2,sz*2);
+  if(dir<0)return;
+  const cx=sz,cy=sz,rad=sz*0.82;
+  // Arc spans 70° centered on the direction
+  const baseAngles=[Math.PI*1.5,0,Math.PI*0.5,Math.PI]; // up, right, down, left
+  const base=baseAngles[dir];
+  const span=Math.PI*(70/180);
+  ac.beginPath();
+  ac.arc(cx,cy,rad,base-span/2,base+span/2);
+  const grad=ac.createLinearGradient(0,0,sz*2,sz*2);
+  grad.addColorStop(0,'rgba(91,200,245,0.0)');
+  grad.addColorStop(0.5,'rgba(91,200,245,0.5)');
+  grad.addColorStop(1,'rgba(91,200,245,0.0)');
+  ac.strokeStyle=grad;
+  ac.lineWidth=sz*0.12;
+  ac.lineCap='round';
+  ac.stroke();
+}
+
+function onStickStart(e){
+  e.preventDefault();
+  if(!stickOuter)return;
+  stickActive=true;
+  stickNub.classList.add('active');
+  const rect=stickOuter.getBoundingClientRect();
+  stickOriginX=rect.left+rect.width/2;
+  stickOriginY=rect.top+rect.height/2;
+  onStickMove(e);
+}
+
+function onStickMove(e){
+  e.preventDefault();
+  if(!stickActive)return;
+  const t=e.changedTouches?e.changedTouches[0]:e.touches[0];
+  if(!t)return;
+  const dx=t.clientX-stickOriginX;
+  const dy=t.clientY-stickOriginY;
+  moveNub(dx,dy);
+  const dir=snapDir(dx,dy);
+  if(dir!==stickCurDir){
+    stickCurDir=dir;
+    drawArc(dir);
+    if(dir>=0&&(gs==='playing'||gs==='countdown'))steerP1(dir);
+  }
+}
+
+function onStickEnd(e){
+  e.preventDefault();
+  stickActive=false;
+  resetNub();
+}
+
+if(stickOuter){
+  stickOuter.addEventListener('touchstart',onStickStart,{passive:false});
+  stickOuter.addEventListener('touchmove',onStickMove,{passive:false});
+  stickOuter.addEventListener('touchend',onStickEnd,{passive:false});
+  stickOuter.addEventListener('touchcancel',onStickEnd,{passive:false});
+}
+// ── END THUMBSTICK ────────────────────────────────────────────────────────────
 
 // ── SWIPE on canvas ───────────────────────────────────────────────────────────
 let swipeStartX=0,swipeStartY=0,swipeActive=false;
-const SWIPE_THRESH=22; // px minimum to register as a swipe
-
+const SWIPE_THRESH=22;
 let swipeHintShown=false;
 const swipeHintEl=document.getElementById('swipe-hint');
 
@@ -3245,20 +3398,16 @@ cv.addEventListener('touchstart',e=>{
   swipeStartY=e.touches[0].clientY;
   swipeActive=true;
   if(gs==='playing'&&!swipeHintShown)showSwipeHint();
-  // Boost window tap (countdown) — treated as keydown
-  if(gs==='countdown'&&countdown<=2&&countdown>1){
-    p1.boost=4;
-  }
+  if(gs==='countdown'&&countdown<=2&&countdown>1)p1.boost=4;
 },{passive:true});
 
 cv.addEventListener('touchend',e=>{
-  if(!swipeActive)return;
-  swipeActive=false;
+  if(!swipeActive)return;swipeActive=false;
   const dx=e.changedTouches[0].clientX-swipeStartX;
   const dy=e.changedTouches[0].clientY-swipeStartY;
   const adx=Math.abs(dx),ady=Math.abs(dy);
   if(adx<SWIPE_THRESH&&ady<SWIPE_THRESH){
-    // Short tap — route to canvas click handler for menus
+    // Short tap → route to menu button system
     const r=cv.getBoundingClientRect();
     const mx=(e.changedTouches[0].clientX-r.left)*(W/r.width);
     const my=(e.changedTouches[0].clientY-r.top)*(H/r.height);
@@ -3266,40 +3415,50 @@ cv.addEventListener('touchend',e=>{
     btns.forEach(b=>{if(mx>=b.x&&mx<b.x+b.w&&my>=b.y&&my<b.y+b.h)b.fn();});
     return;
   }
-  // Directional swipe
   if(gs!=='playing')return;
   let dir;
-  if(adx>ady){dir=dx>0?1:3;} // right : left
-  else{dir=dy>0?2:0;}         // down  : up
-  // In 2P mode swipe controls P1 only; P2 uses their d-pad
+  if(Math.abs(dx)>Math.abs(dy)){dir=dx>0?1:3;}
+  else{dir=dy>0?2:0;}
   steerP1(dir);
 },{passive:true});
 
-// Prevent default scroll on canvas while playing
 cv.addEventListener('touchmove',e=>{
   if(gs==='playing'||gs==='countdown')e.preventDefault();
 },{passive:false});
 
-// ── SHOW/HIDE D-PAD based on game state & mode ────────────────────────────────
-// We need to reactively show/hide the C2 d-pad when gameMode changes.
-// Patch the mode-selection buttons to also update d-pad visibility.
+// ── MINI HUD (portrait mobile) ────────────────────────────────────────────────
+const mhudP1=document.getElementById('mhud-p1');
+const mhudP2=document.getElementById('mhud-p2');
+const mhudTimer=document.getElementById('mhud-timer');
+const mobileHud=document.getElementById('mobile-hud');
+const dpadWrap=document.getElementById('dpad-wrap');
 
-function updateDpadVisibility(){
-  const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
-  const wrap=document.getElementById('dpad-wrap');
-  const p2zone=document.getElementById('dpad-zone-p2');
-  if(!wrap||!p2zone)return;
-  // Only show d-pad during active gameplay states
-  const playState=gs==='playing'||gs==='countdown'||gs==='paused'||gs==='end';
-  if(isTouch){
-    wrap.style.display=playState?'flex':'none';
-    p2zone.style.display=(gameMode==='2p'&&playState)?'flex':'none';
-    // Adjust gap between pads
-    wrap.style.gap=gameMode==='2p'?'32px':'0px';
+function updateMobileUI(){
+  if(!IS_TOUCH||!IS_PORTRAIT())return;
+  const playing=gs==='playing'||gs==='countdown'||gs==='paused';
+
+  // Show/hide dpad and mini-hud only during active game
+  if(dpadWrap)dpadWrap.style.display=(playing||gs==='end')?'flex':'none';
+  if(mobileHud)mobileHud.style.display=playing?'flex':'none';
+
+  // Update mini-HUD values
+  if(playing&&mhudP1&&mhudP2&&mhudTimer){
+    mhudP1.textContent=p1.score.toLocaleString();
+    if(gameMode!=='solo'){
+      mhudP2.textContent=p2.score.toLocaleString();
+      document.querySelector('#mobile-hud div:last-child .mhud-label').textContent=
+        gameMode==='vsai'?'AI':'P2';
+    } else {
+      mhudP2.textContent='';
+    }
+    if(raidMode){
+      const m=Math.floor(raidElapsed/60),s=Math.floor(raidElapsed%60).toString().padStart(2,'0');
+      mhudTimer.textContent=m+':'+s;
+    } else {
+      const m=Math.floor(gt/60),s=Math.floor(gt%60).toString().padStart(2,'0');
+      mhudTimer.textContent=m+':'+s;
+    }
   }
 }
-
-// Hook into the existing loop to update visibility each frame
-// (updateDpadVisibility called from the main loop below — see end of file)
 
 </script></body></html>
