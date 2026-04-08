@@ -231,10 +231,10 @@ const BASE_PTYPES=PTYPES.filter(t=>t!=='HEALTH');
 // ── DIFFICULTY ──────────────────────────────────────────────────────────────
 const DIFFS=['NORMAL','HEROIC','MYTHIC','LEGENDARY'];
 const DIFF_CFG={
-  NORMAL:   {bfsBonus:0, noise:26, capTimer:11, pupRate:13, escapeStag:7.0, label:'NORMAL',    col:'#4ade80', aiSpd:0.82, playerSpd:1.0,  voidRate:0,  voidSize:0, starMult:1.0, blurb:'Easygoing AI \xb7 forgiving capture timer \xb7 good for learning'},
-  HEROIC:   {bfsBonus:1, noise:7,  capTimer:7, pupRate:18, escapeStag:2.5, label:'HEROIC',    col:'#4a9eff', aiSpd:1.15, playerSpd:1.0,  voidRate:0,  voidSize:0, starMult:1.0, blurb:'Faster, smarter AI \xb7 competitive matches'},
-  MYTHIC:   {bfsBonus:1, noise:7,  capTimer:7, pupRate:28, escapeStag:2.5, label:'MYTHIC',    col:'#cc44ff', aiSpd:1.15, playerSpd:0.88, voidRate:15, voidSize:4, starMult:1.2, blurb:'Heroic AI + void pulses \xb7 you move slower \xb7 fewer power-ups'},
-  LEGENDARY:{bfsBonus:1, noise:7,  capTimer:7, pupRate:40, escapeStag:2.5, label:'LEGENDARY', col:'#ef9f27', aiSpd:1.15, playerSpd:0.78, voidRate:8,  voidSize:7, starMult:1.4, blurb:'Heroic AI + frequent voids \xb7 heavily slowed \xb7 scarce power-ups'},
+  NORMAL:   {bfsBonus:0, noise:26, capTimer:8,  pupRate:13, escapeStag:7.0, label:'NORMAL',    col:'#4ade80', aiSpd:0.82, playerSpd:1.0,  voidRate:0,  voidSize:0, starMult:1.0, blurb:'Easygoing AI \xb7 8s capture window \xb7 good for learning'},
+  HEROIC:   {bfsBonus:1, noise:7,  capTimer:5,  pupRate:18, escapeStag:2.5, label:'HEROIC',    col:'#4a9eff', aiSpd:1.15, playerSpd:1.0,  voidRate:0,  voidSize:0, starMult:1.0, blurb:'Faster, smarter AI \xb7 5s capture window \xb7 competitive'},
+  MYTHIC:   {bfsBonus:1, noise:7,  capTimer:4,  pupRate:28, escapeStag:2.5, label:'MYTHIC',    col:'#cc44ff', aiSpd:1.15, playerSpd:0.88, voidRate:15, voidSize:4, starMult:1.2, blurb:'Heroic AI + void pulses \xb7 4s capture window \xb7 punishing'},
+  LEGENDARY:{bfsBonus:1, noise:7,  capTimer:4,  pupRate:40, escapeStag:2.5, label:'LEGENDARY', col:'#ef9f27', aiSpd:1.15, playerSpd:0.78, voidRate:8,  voidSize:7, starMult:1.4, blurb:'Heroic AI + frequent voids \xb7 4s capture window \xb7 relentless'},
 };
 
 // ── RAIDS ─────────────────────────────────────────────────────────────────────
@@ -331,13 +331,44 @@ const LEVELS=[
    starCovers:[30,50], desc:'Worms start in isolation boxes. Boxes dissolve at 60s.'},
 ];
 
-let fs=0.9;
+let fs=1.05;
 const F=(n,b)=>(b?'bold ':'')+Math.round(n*fs)+'px system-ui,-apple-system,sans-serif';
 const FS=(n,b)=>(b?'bold ':'')+Math.round(n*fs)+'px system-ui,-apple-system,sans-serif';
 const blend=(h1,h2,t)=>{
   const p=(h,i)=>parseInt(h.slice(1+i*2,3+i*2),16);
   return 'rgb('+[0,1,2].map(i=>Math.round(p(h1,i)+(p(h2,i)-p(h1,i))*Math.max(0,Math.min(1,t)))).join(',')+')'
 };
+
+// ── SAVE DATA ─────────────────────────────────────────────────────────────────
+const SAVE_KEY='dgth_v3_save';
+const DEFAULT_SAVE={coins:0,campaignStars:[0,0,0,0,0],raidCompleted:[false,false,false],difficulty:'NORMAL',totalRuns:0};
+let save={...DEFAULT_SAVE};
+let runCoins=0; // coins earned this run, banked at end
+
+function loadSave(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(raw){
+      const d=JSON.parse(raw);
+      save={...DEFAULT_SAVE,...d};
+      save.campaignStars=Array.isArray(d.campaignStars)?d.campaignStars.slice():[0,0,0,0,0];
+      save.raidCompleted=Array.isArray(d.raidCompleted)?d.raidCompleted.slice():[false,false,false];
+    }
+  }catch(e){}
+  campaignStars=save.campaignStars.slice();
+  campaignUnlocked=Math.max(1,campaignStars.filter(s=>s>0).length+1);
+  if(campaignUnlocked>5)campaignUnlocked=5;
+  raidCompleted=save.raidCompleted.slice();
+  raidUnlocked=[true,raidCompleted[0],raidCompleted[1]];
+  difficulty=save.difficulty||'NORMAL';
+}
+function persist(){
+  save.campaignStars=campaignStars.slice();
+  save.raidCompleted=raidCompleted.slice();
+  save.difficulty=difficulty;
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(e){}
+}
+function addCoins(n){runCoins+=n;}
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 let sub=[],gs='title',lt=0,prevLead=0;
@@ -673,7 +704,7 @@ function advance(w,isAI){
     const pcx=nx*CS+CS/2,pcy=GY+ny*CS+CS/2;
     const pcol=isAI?C2:C1;
     spawnBurst(pcx,pcy,pcol,4+Math.floor(nc.bd/2),1.2+nc.bd*0.25,0.4+nc.bd*0.06);
-    if(!isAI)spawnScorePop(pcx,pcy-5,'+'+pts,pts>30?TX.warn:C1);
+    if(!isAI){spawnScorePop(pcx,pcy-5,'+'+pts,pts>30?TX.warn:C1);addCoins(1+(nc.bd>=4?1:0));}
   } else w.vis.add(key);
   nc.sf=Math.min(1,nc.sf+(isnew?0.5:0.12));
   nc.d=Math.max(1,nc.bd-Math.floor(nc.sf*2.5));nc.fl=1;
@@ -682,10 +713,10 @@ function advance(w,isAI){
     const scx=nx*CS+CS/2,scy=GY+ny*CS+CS/2;
     spawnRing(scx,scy,TX.warn,14,2.8,0.75);
     spawnScorePop(scx,scy-10,'+50 SEAM',TX.warn);
-    if(!isAI){sm='SEAM EVENT \xb7 INTERSECTION TOPOLOGY \xb7 +50';smt=2;playSeamSound();}
+    if(!isAI){sm='SEAM EVENT \xb7 INTERSECTION TOPOLOGY \xb7 +50';smt=2;playSeamSound();addCoins(5);}
   }
   const pi=powerups.findIndex(p=>p.r===ny&&p.c===nx);
-  if(pi>=0){applyPup(w,isAI,powerups[pi].type);powerups.splice(pi,1);}
+  if(pi>=0){applyPup(w,isAI,powerups[pi].type);if(!isAI)addCoins(3);powerups.splice(pi,1);}
 }
 
 function applyPup(w,isAI,type){
@@ -722,7 +753,7 @@ function applyPup(w,isAI,type){
 }
 
 function effSpd(w,d,sf,isAI){
-  let s=1.5+(5-Math.max(0,d-sf*2))*0.75;
+  let s=4.5; // constant base — density is score multiplier only, not a speed gate
   if(w.boost>0)s*=1.9;if(w.freeze>0)s*=0.35;if(w.stunned>0)s=0;
   if(isAI)s*=getDiffCfg().aiSpd;
   else s*=(getDiffCfg().playerSpd||1.0);
@@ -849,6 +880,7 @@ function startLevel(lvIdx){
   powerups=[];pupTimer=getDiffCfg().pupRate;pupMsg='';pupMsgT=0;
   countdown=3;gs='countdown';
   particles=[];scorePopups=[];shakeMag=0;vigA=0;winParticlesInit=false;
+  runCoins=0;
   music.play(getLevelTrack(lvIdx));
   document.getElementById('hint').textContent=
     gameMode==='2p'?'P1: WASD  \xb7  P2: Arrow keys  \xb7  ESC: Pause':'Arrow keys / WASD  \xb7  ESC: Pause';
@@ -867,6 +899,7 @@ function startFreeplay(){
   powerups=[];pupTimer=getDiffCfg().pupRate;pupMsg='';pupMsgT=0;
   countdown=3;gs='countdown';
   particles=[];scorePopups=[];shakeMag=0;vigA=0;winParticlesInit=false;
+  runCoins=0;
   music.play('genesis');
   document.getElementById('hint').textContent=
     gameMode==='2p'?'P1: WASD  \xb7  P2: Arrow keys  \xb7  ESC: Pause':'Arrow keys / WASD  \xb7  ESC: Pause';
@@ -895,11 +928,19 @@ function endgame(){
     else winner=p1.score>=p2.score?'C1':'C2';
     er=winner+' WINS'+reason+' \xb7 C1: '+p1.score.toLocaleString()+' \xb7 C2 '+lbl+': '+p2.score.toLocaleString();
   }
+  // ── COIN BONUSES at match end ──
+  const p1wins=soloLike||(winner==='C1');
+  if(p1wins)addCoins(25); // match win bonus
   if(gameMode==='campaign'){
     const stars=calcStars();
     campaignStars[campaignLevel]=Math.max(campaignStars[campaignLevel],stars);
     if(stars>0&&campaignLevel+1<LEVELS.length)campaignUnlocked=Math.max(campaignUnlocked,campaignLevel+2);
+    if(stars===3)addCoins(50); // 3-star bonus
   }
+  // Bank run coins into save
+  save.coins=(save.coins||0)+runCoins;
+  save.totalRuns=(save.totalRuns||0)+1;
+  persist();
   gs='end';
   music.stop();
 }
@@ -1575,9 +1616,17 @@ function updateRaid(dt){
   else if(currentRaid.id===2)updateMalgath(dt);
   // Wipe checks
   const devFrac=boss.devouredCount/Math.max(1,boss.totalTraversable);
-  if(devFrac>=currentRaid.devourLimit){er='SUBSTRATE DEVOURED \u2014 WIPE';gs='end';return;}
+  if(devFrac>=currentRaid.devourLimit){
+    er='SUBSTRATE DEVOURED \u2014 WIPE';
+    addCoins(15);save.coins=(save.coins||0)+runCoins;save.totalRuns=(save.totalRuns||0)+1;persist();
+    gs='end';return;
+  }
   const bothDown=p1.hp<=0&&(gameMode==='solo'||p2.hp<=0);
-  if(bothDown){er='ANNIHILATED \u2014 WIPE';gs='end';return;}
+  if(bothDown){
+    er='ANNIHILATED \u2014 WIPE';
+    addCoins(15);save.coins=(save.coins||0)+runCoins;save.totalRuns=(save.totalRuns||0)+1;persist();
+    gs='end';return;
+  }
   if(p1.hp<=0&&gameMode!=='solo'&&p2.hp>0){er='C1 FALLEN \u2014 C2 FIGHTS ON';}
   // Win check — coverage threshold scales with difficulty
   const WIN_COVER={NORMAL:0.68,HEROIC:0.74,MYTHIC:0.80,LEGENDARY:0.86};
@@ -1588,6 +1637,7 @@ function updateRaid(dt){
     er='RAID COMPLETE \u2014 BOSS REPELLED';
     raidCompleted[currentRaid.id]=true;
     if(currentRaid.id+1<RAID_DEFS.length)raidUnlocked[currentRaid.id+1]=true;
+    addCoins(75);save.coins=(save.coins||0)+runCoins;save.totalRuns=(save.totalRuns||0)+1;persist();
     gs='end';
   }
 }
@@ -1631,6 +1681,7 @@ function initRaid(raidIdx){
   powerups=[];pupTimer=12;pupMsg='';pupMsgT=0;
   countdown=3;gs='countdown';
   particles=[];scorePopups=[];shakeMag=0;vigA=0;winParticlesInit=false;
+  runCoins=0;
   music.play('raid_'+raidIdx);
   document.getElementById('hint').textContent='Raid: Arrow keys / WASD \xb7 2P: Arrows+WASD \xb7 ESC: Pause';
 }
@@ -1732,151 +1783,262 @@ function drawtitle(){
   g.fillStyle=C1;g.font=F(20,true);
   g.fillText('D G T H',W/2,cubeCY+Math.round(cubeR*1.55+16));
 
-  let cy=bannerH+Math.round(18+4*fs);
+  let cy=bannerH+Math.round(28+4*fs);
 
-  // ── TEXT SIZE + DIFFICULTY + MUSIC TOGGLE ──
+  // ── ROW 1: COINS | DIFFICULTY PILL | MUSIC ──
   const rowH=Math.round(18+2*fs);
 
-  // Text size — fixed small buttons
-  g.fillStyle=TX.dim;g.font=FS(10,false);g.textAlign='left';
-  g.fillText('TEXT SIZE',32,cy-2);
-  [['S',0.9],['M',1.15]].forEach(([lbl,sc],i)=>{
-    const bx=32+i*46,by=cy,bw=40,bh=rowH,on=Math.abs(fs-sc)<0.05;
-    g.fillStyle=on?'#0e2540':'#0a0a1a';g.fillRect(bx,by,bw,bh);
-    g.strokeStyle=on?C1:'#2a2458';g.lineWidth=on?1.5:0.8;g.strokeRect(bx,by,bw,bh);
-    g.fillStyle=on?C1:TX.dim;g.font=F(10,true);g.textAlign='center';
-    g.fillText(lbl,bx+bw/2,by+Math.round(rowH*0.7));
-    mkbtn(bx,by,bw,bh,()=>fs=sc);
-  });
+  // Coin total — left side
+  g.fillStyle='#8a7000';g.font=FS(9,false);g.textAlign='left';
+  g.fillText('COINS',32,cy-2);
+  g.fillStyle='#ffd700';g.font=F(11,true);g.textAlign='left';
+  g.fillText('\u25c9 '+save.coins.toLocaleString(),32,cy+Math.round(rowH*0.72));
 
-  // Music toggle — top right, fixed width
+  // Music toggle — top right
   const mOn=!music._muted;
-  const mbw=56,mbx=W-32-mbw,mby=cy,mbh=rowH;
+  const mbw=46,mbx=W-32-mbw,mby=cy,mbh=rowH;
   g.fillStyle=mOn?'#0a1a0a':'#1a0a0a';g.fillRect(mbx,mby,mbw,mbh);
   g.strokeStyle=mOn?TX.good:TX.bad;g.lineWidth=1;g.strokeRect(mbx,mby,mbw,mbh);
   g.fillStyle=mOn?TX.good:TX.bad;g.font=FS(9,true);g.textAlign='center';
   g.fillText('\u266a '+(mOn?'ON':'OFF'),mbx+mbw/2,mby+Math.round(rowH*0.7));
   mkbtn(mbx,mby,mbw,mbh,()=>music.toggleMute());
 
-  // Difficulty — text-width buttons (font set before measuring)
-  g.font=F(10,true); // must set font before measureText
-  const diffBtns=DIFFS.map(d=>({d,bw:Math.ceil(g.measureText(d).width)+26}));
-  const diffTotalW=diffBtns.reduce((s,x)=>s+x.bw,0)+(diffBtns.length-1)*6;
-  const diffStartX=Math.round((W-diffTotalW)/2); // center the difficulty row
-  g.fillStyle=TX.dim;g.font=FS(10,false);g.textAlign='center';
-  g.fillText('DIFFICULTY',W/2,cy-2);
-  let diffX=diffStartX;
-  diffBtns.forEach(({d,bw})=>{
-    const bh=rowH,on=difficulty===d,cfg=DIFF_CFG[d];
-    g.fillStyle=on?'#0a0a18':'#080810';g.fillRect(diffX,cy,bw,bh);
-    g.strokeStyle=on?cfg.col:'#2a2458';g.lineWidth=on?1.5:0.8;g.strokeRect(diffX,cy,bw,bh);
-    g.fillStyle=on?cfg.col:TX.dim;g.font=F(10,true);g.textAlign='center';
-    g.fillText(d,diffX+bw/2,cy+Math.round(rowH*0.7));
-    mkbtn(diffX,cy,bw,bh,()=>difficulty=d);
-    diffX+=bw+6;
-  });
-  // Blurb for selected difficulty
+  // Difficulty dropdown pill — no label, blurb below
   const selCfg=DIFF_CFG[difficulty];
-  g.fillStyle=selCfg.col;g.font=FS(9,false);g.textAlign='center';
-  g.fillText(selCfg.blurb,W/2,cy+rowH+Math.round(11*fs));
+  const dpw=84,dpx=mbx-dpw-6,dpy=cy,dph=rowH;
+  g.fillStyle='#080810';g.fillRect(dpx,dpy,dpw,dph);
+  g.strokeStyle=selCfg.col;g.lineWidth=1.2;g.strokeRect(dpx,dpy,dpw,dph);
+  g.fillStyle=selCfg.col;g.font=F(9,true);g.textAlign='center';
+  g.fillText(difficulty+' '+(diffDropOpen?'\u25b4':'\u25be'),dpx+dpw/2,dpy+Math.round(dph*0.7));
+  mkbtn(dpx,dpy,dpw,dph,()=>diffDropOpen=!diffDropOpen);
+  // Blurb below pill, right-aligned, difficulty color
+  g.fillStyle=selCfg.col;g.font=FS(8,false);g.textAlign='right';
+  g.fillText(selCfg.blurb,mbx+mbw,dpy+dph+11);
 
-  cy+=rowH+Math.round(14*fs)+Math.round(10+4*fs); // rowH + blurb line + gap
+  // Dropdown list — opens UPWARD
+  if(diffDropOpen){
+    const itemH=rowH+2;
+    DIFFS.forEach((d,i)=>{
+      const cfg=DIFF_CFG[d];
+      const iy=dpy-(DIFFS.length-i)*itemH;
+      const on=difficulty===d;
+      g.fillStyle=on?'#12121e':'#0a0a14';g.fillRect(dpx,iy,dpw,itemH);
+      g.strokeStyle=on?cfg.col:'#1a1a30';g.lineWidth=on?1.2:0.6;g.strokeRect(dpx,iy,dpw,itemH);
+      g.fillStyle=on?cfg.col:TX.dim;g.font=F(9,on);g.textAlign='center';
+      g.fillText(d,dpx+dpw/2,iy+Math.round(itemH*0.68));
+      mkbtn(dpx,iy,dpw,itemH,()=>{difficulty=d;save.difficulty=d;persist();diffDropOpen=false;});
+    });
+  }
 
-  // ── HOW TO PLAY ──
-  const eli=['Move your worm through the dark grid. Every new cell scores points. Dense (dark) cells are slow but worth more.',
-    'Cross zone borders for +50 bonus. Collect glowing power-ups. Unlock red blocked zones by hitting score thresholds.',
-    'WIN: highest score when time runs out, or cover 92%+ of reachable substrate. Lose 3 Filter Captures = eliminated.'];
-  const eliLH=Math.round(11*fs+5);
-  const eliH=Math.round(12+eliLH*3+22); // 22px bottom padding
-  panel(32,cy,W-64,eliH,'#2a6040'); // HOW TO PLAY — green accent
-  g.fillStyle=TX.good;g.font=F(9,true);g.textAlign='left';
-  g.fillText('\u25ba HOW TO PLAY',48,cy+Math.round(14*fs));
-  eli.forEach((l,i)=>{
-    g.fillStyle=i===2?TX.warn:TX.body;g.font=FS(Math.round(9.5*fs),false);g.textAlign='left';
-    g.fillText(l,48,cy+Math.round(14*fs)+Math.round(6+eliLH*(i+1)));
+  cy+=rowH+Math.round(20+2*fs);
+
+  // ── HOW TO PLAY — card carousel ──
+  const HTP_CARDS=[
+    {title:'WHAT IS THIS GAME?', col:C1, body:[
+      'DGTH is a territory game. You control a cursor moving through a dark grid.',
+      'Your goal: explore as much of the grid as possible before the 3-minute timer runs out.',
+      'The more new cells you visit, the more points you score.',
+      'Your opponent — the AI — is doing the exact same thing. Whoever covers more ground wins.',
+    ]},
+    {title:'HOW TO MOVE', col:C1, body:[
+      'Use Arrow Keys or WASD to steer your cursor. You move constantly — you cannot stop.',
+      'You can turn left, turn right, or keep going straight. You CANNOT reverse direction.',
+      'If a wall or locked zone is ahead, you\'ll automatically try to turn to avoid it.',
+      'Tip: plan turns early — momentum carries you forward whether you\'re ready or not.',
+    ]},
+    {title:'SCORING POINTS', col:TX.good, body:[
+      'Every dark cell you enter for the FIRST TIME scores points. Already-visited cells score nothing new.',
+      'Your score is shown top-left. The AI\'s score is top-right.',
+      'Focus on unexplored (dark) territory. Revisiting old ground wastes time.',
+      'Seams, power-ups, and dense cells all add bonus points on top of base traversal.',
+    ]},
+    {title:'DENSITY — DARK CELLS', col:'#aaaacc', body:[
+      'Not all cells are worth the same. The darker the cell, the denser it is.',
+      'Dense cells are worth MORE points when you first visit them.',
+      'They used to slow you down. They no longer do. Now they\'re just valuable.',
+      'Seek out the darkest areas of the grid for maximum scoring.',
+    ]},
+    {title:'ZONE SEAMS — +50 BONUS', col:TX.warn, body:[
+      'The grid is divided into invisible zones. You can spot the faint borders between them.',
+      'When you cross from one zone into another, you trigger a SEAM EVENT: +50 bonus points.',
+      'A golden ring effect fires and a chime plays so you know it happened.',
+      'Strategy: plan routes that cross multiple zone borders. Seams add up fast.',
+    ]},
+    {title:'LOCKED ZONES (RED CELLS)', col:'#cc4444', body:[
+      'Some parts of the grid are locked behind red barriers. You cannot enter them yet.',
+      'Locked zones unlock automatically when the LEADING player hits a score threshold.',
+      'Tier 1 unlocks at 1,000 points. Tier 2 at 3,000. Tier 3 at 7,000.',
+      'Stay ahead on score — it opens more of the map for both players.',
+    ]},
+    {title:'POWER-UPS', col:C1, body:[
+      'Glowing icons appear randomly on the grid. Walk into one to grab it instantly.',
+      'BOOST — you move faster for 4 seconds.  BOMB — stuns your opponent for 2.5s.',
+      'SHIELD — blocks your next Filter Capture.  FREEZE — slows your opponent for 3s.',
+      'SCRAMBLE — scrambles their controls.  +HP — heals 35 HP (Raids only).',
+    ]},
+    {title:'FILTER CAPTURE', col:TX.bad, body:[
+      'If you stay in the same area too long without finding new cells, trouble starts.',
+      'The FILTER CAPTURE bar (below your score) fills up. When it maxes out, you\'re frozen for 3 seconds.',
+      'Your capture count goes up by 1. Three captures total and you are ELIMINATED.',
+      'This can happen even if you\'re winning on score. Keep moving. Always seek new ground.',
+    ]},
+    {title:'HOW TO WIN', col:TX.good, body:[
+      'Two ways to win: Score more points than your opponent when the 3-minute timer hits zero.',
+      'OR — cover 92% or more of the reachable grid before time runs out. Instant win.',
+      'In Campaign mode, you earn 1 to 3 stars based on your coverage % and whether you got captured.',
+      '3 stars requires high coverage AND zero captures. Perfect run = perfect score.',
+    ]},
+    {title:'RAIDS', col:'#ff44aa', body:[
+      'Raids unlock after earning 8 Campaign stars total. They\'re a different mode entirely.',
+      'A massive boss entity moves across the grid, permanently devouring cells as it goes.',
+      'You have 100 HP. Boss abilities deal damage — dodge them or use a SHIELD.',
+      'Win by covering enough of the surviving substrate before the boss devours too much.',
+    ]},
+  ];
+  const htpH=148;
+  const htpPad=14;
+  const card=HTP_CARDS[htpCard];
+  panel(32,cy,W-64,htpH,'#2a4a60');
+
+  // Card header — centered in safe zone between arrows
+  const arrW=36;
+  const safeX=32+arrW+8;
+  const safeW=W-64-arrW*2-16;
+  g.fillStyle=card.col;g.font='bold 13px system-ui,-apple-system,sans-serif';g.textAlign='center';
+  g.fillText(card.title,safeX+safeW/2,cy+htpPad+12);
+
+  // Card body lines — centered, word-wrapped within safe zone
+  const bodyFontSz=12;
+  const bodyLH=19;
+  card.body.forEach((line,i)=>{
+    g.fillStyle=i===0?TX.body:TX.dim;
+    g.font=bodyFontSz+'px system-ui,-apple-system,sans-serif';
+    g.textAlign='center';
+    const words=line.split(' ');
+    let row='',ry=cy+htpPad+28+i*bodyLH;
+    words.forEach(w=>{
+      const test=row?row+' '+w:w;
+      if(g.measureText(test).width>safeW&&row){
+        g.fillText(row,safeX+safeW/2,ry);row=w;ry+=bodyLH;
+      } else row=test;
+    });
+    if(row)g.fillText(row,safeX+safeW/2,ry);
   });
-  cy+=eliH+Math.round(8+4*fs);
 
-  // ── MODE ──
-  const modeLabelH=Math.round(13*fs);
-  const modeH=Math.round(modeLabelH+rowH+18);
-  panel(32,cy,W-64,modeH,'#3a5a90'); // MODE — blue accent
-  g.fillStyle=TX.dim;g.font=FS(10,false);g.textAlign='left';
-  g.fillText('MODE',48,cy+modeLabelH);
+  // Nav arrows — full height, always active (wraps)
+  // Prev
+  const prevActive=htpCard>0;
+  g.fillStyle='rgba(91,200,245,0.08)';g.fillRect(32,cy,arrW,htpH);
+  g.fillStyle=C1;g.font='bold 22px system-ui,-apple-system,sans-serif';g.textAlign='center';
+  g.fillText('\u25c4',32+arrW/2,cy+htpH/2+8);
+  if(prevActive)mkbtn(32,cy,arrW,htpH,()=>htpCard--);
+  else mkbtn(32,cy,arrW,htpH,()=>htpCard=HTP_CARDS.length-1);
+
+  // Next
+  const nextActive=htpCard<HTP_CARDS.length-1;
+  g.fillStyle='rgba(91,200,245,0.08)';g.fillRect(W-32-arrW,cy,arrW,htpH);
+  g.fillStyle=C1;g.font='bold 22px system-ui,-apple-system,sans-serif';g.textAlign='center';
+  g.fillText('\u25ba',W-32-arrW/2,cy+htpH/2+8);
+  if(nextActive)mkbtn(W-32-arrW,cy,arrW,htpH,()=>htpCard++);
+  else mkbtn(W-32-arrW,cy,arrW,htpH,()=>htpCard=0);
+
+  // Dot indicators — centered
+  const dotR=3,dotGap=10,dotsW=(HTP_CARDS.length-1)*dotGap;
+  const dotStartX=W/2-dotsW/2;
+  HTP_CARDS.forEach((_,i)=>{
+    g.fillStyle=i===htpCard?C1:'#2a2a3a';
+    g.beginPath();g.arc(dotStartX+i*dotGap,cy+htpH-8,dotR,0,Math.PI*2);g.fill();
+  });
+
+  // Card counter — inside right safe zone
+  g.fillStyle=TX.faint;g.font='9px system-ui,-apple-system,sans-serif';g.textAlign='right';
+  g.fillText((htpCard+1)+' / '+HTP_CARDS.length,W-32-arrW-4,cy+htpH-5);
+
+  cy+=htpH+8;
+
+  // ── THREE COLUMNS: MODE | CAMPAIGN LEVELS | BOONS & BAFOONS ──
   const totalStarsM=campaignStars.reduce((s,n)=>s+n,0);
   const raidStarReq=8;
   const raidUnlockable=totalStarsM>=raidStarReq;
   const isMobilePortrait=IS_TOUCH&&IS_PORTRAIT();
-  g.font=F(10,true); // set font before measuring
+
+  const itemStep=20;
+  const colPadTop=18,colPadBot=10;
+  // Height: header + 6 items (5 levels + 1 spare for boons/mode) + padding
+  const colH=colPadTop+itemStep*6+colPadBot;
+  const colHdrY=cy+12;
+
+  // Column X positions — MODE | CAMPAIGN | BOONS
+  const modeW=188,campW=252,boonsW=W-64-modeW-campW-16;
+  const modeX=32,campX=modeX+modeW+8,boonsX=campX+campW+8;
+
+  // ── MODE column ──
+  panel(modeX,cy,modeW,colH,'#3a5a90');
+  g.fillStyle=TX.dim;g.font='bold 9px system-ui,-apple-system,sans-serif';g.textAlign='left';
+  g.fillText('MODE',modeX+14,colHdrY);
   const modeItems=[
-    {lbl:'SOLO',       key:'solo',     col:'#4ade80',dark:'#061a08'},
+    {lbl:'SOLO',      key:'solo',    col:'#4ade80',dark:'#061a08'},
     ...(isMobilePortrait?[]:[{lbl:'2P LOCAL',key:'2p',col:'#4a9eff',dark:'#06162a'}]),
-    {lbl:'VS AI',      key:'vsai',     col:'#bb44ff',dark:'#180628'},
-    {lbl:'CAMPAIGN',   key:'campaign', col:'#ef9f27',dark:'#1a0e00'},
-    {lbl:'\u2694 RAIDS',key:'_raids',  col:'#ff44aa',dark:'#280018',raid:true,avail:raidUnlockable},
+    {lbl:'VS AI',     key:'vsai',    col:'#bb44ff',dark:'#180628'},
+    {lbl:'CAMPAIGN',  key:'campaign',col:'#ef9f27',dark:'#1a0e00'},
+    {lbl:'\u2694 RAIDS',key:'_raids',col:'#ff44aa',dark:'#280018',raid:true,avail:raidUnlockable},
   ];
-  const mBtns=modeItems.map(it=>({...it,bw:Math.ceil(g.measureText(it.lbl).width)+22}));
-  const mTotalW=mBtns.reduce((s,b)=>s+b.bw,0)+(mBtns.length-1)*6;
-  let mX=Math.max(48,Math.round(32+(W-64-mTotalW)/2));
-  const mY=cy+modeLabelH+4;
-  mBtns.forEach(({lbl,key,bw,col,dark,raid,avail})=>{
+  const modeBtnH=Math.round((colH-colPadTop-colPadBot-4)/modeItems.length)-3;
+  let mby2=cy+colPadTop;
+  modeItems.forEach(({lbl,key,col,dark,raid,avail})=>{
     const on=gameMode===key;
     const locked=raid&&!avail;
-    const borderCol=locked?'#1a1830':on?col:col+'55'; // dim when inactive
-    const txtCol=locked?'#2a1840':on?col:TX.dim;
-    const fill=locked?'#06040c':on?dark:'#080812';
-    g.fillStyle=fill;g.fillRect(mX,mY,bw,rowH);
-    g.strokeStyle=borderCol;g.lineWidth=on?1.5:locked?0.3:0.7;g.strokeRect(mX,mY,bw,rowH);
-    g.fillStyle=txtCol;g.font=F(10,!locked);g.textAlign='center';
-    g.fillText(lbl,mX+bw/2,mY+Math.round(rowH*0.7));
+    g.fillStyle=locked?'#06040c':on?dark:'#080812';g.fillRect(modeX+10,mby2,modeW-20,modeBtnH);
+    g.strokeStyle=locked?'#1a1830':on?col:col+'44';g.lineWidth=on?1.4:0.6;g.strokeRect(modeX+10,mby2,modeW-20,modeBtnH);
+    g.fillStyle=locked?'#2a1840':on?col:TX.dim;
+    g.font=(on?'bold ':'')+Math.round(9.5*fs)+'px system-ui,-apple-system,sans-serif';
+    g.textAlign='center';
+    g.fillText(lbl,modeX+modeW/2,mby2+Math.round(modeBtnH*0.68));
     if(!locked){
-      if(raid)mkbtn(mX,mY,bw,rowH,()=>{gs='raidselect';gameMode='solo';});
-      else mkbtn(mX,mY,bw,rowH,()=>gameMode=key);
+      if(raid)mkbtn(modeX+10,mby2,modeW-20,modeBtnH,()=>{gs='raidselect';gameMode='solo';});
+      else mkbtn(modeX+10,mby2,modeW-20,modeBtnH,()=>gameMode=key);
     }
-    mX+=bw+6;
+    mby2+=modeBtnH+3;
   });
   if(!raidUnlockable){
-    g.fillStyle='#2a1840';g.font=FS(7,false);g.textAlign='right';
-    g.fillText('\u2694 '+totalStarsM+'/'+raidStarReq+' \u2605 to unlock raids',W-36,mY+rowH+9);
+    g.fillStyle='#2a1840';g.font='7px system-ui,-apple-system,sans-serif';g.textAlign='center';
+    g.fillText('\u2694 '+totalStarsM+'/'+raidStarReq+' \u2605 to unlock',modeX+modeW/2,cy+colH-4);
   }
-  cy+=modeH+Math.round(8+4*fs);
 
-  // ── TWO COLUMN: CAMPAIGN LEVELS + BOONS ──
-  const itemStep=Math.round(22*fs);
-  const colPad=Math.round(20*fs);                // top padding inside panel
-  const colH=Math.round(colPad+itemStep*6+20);   // room for 6 items + 20px bottom breathing
-  const colHdrY=cy+Math.round(14*fs);
-  panel(32,cy,344,colH,theme.accent||C1);      // CAMPAIGN LEVELS — level theme accent
-  g.fillStyle=theme.accent||C1;g.font=F(9,true);g.textAlign='left';
-  g.fillText('CAMPAIGN LEVELS',48,colHdrY);
+  // ── CAMPAIGN LEVELS column ──
+  panel(campX,cy,campW,colH,theme.accent||C1);
+  g.fillStyle=theme.accent||C1;g.font='bold 9px system-ui,-apple-system,sans-serif';g.textAlign='left';
+  g.fillText('CAMPAIGN LEVELS',campX+14,colHdrY);
   LEVELS.forEach((lv,i)=>{
     const unlk=i<campaignUnlocked,stars=campaignStars[i];
-    const ty=colHdrY+Math.round(colPad+i*itemStep);
-    g.fillStyle=unlk?TX.head:'#334';g.font=FS(10,unlk);g.textAlign='left';
-    g.fillText((i+1)+'. '+lv.name,48,ty);
-    if(unlk){for(let s=0;s<3;s++){g.fillStyle=s<stars?TX.warn:'#222';g.font='10px system-ui,-apple-system,sans-serif';g.textAlign='left';g.fillText('\u2605',48+120+s*14,ty);}}
-    else{g.fillStyle='#334';g.font=FS(9,false);g.fillText('[LOCKED]',48+120,ty);}
+    const ty=cy+colPadTop+i*itemStep+itemStep;
+    g.fillStyle=unlk?TX.head:'#334';g.font=(unlk?'bold ':'')+Math.round(9.5*fs)+'px system-ui,-apple-system,sans-serif';g.textAlign='left';
+    g.fillText((i+1)+'. '+lv.name,campX+14,ty);
+    if(unlk){for(let s=0;s<3;s++){g.fillStyle=s<stars?TX.warn:'#222';g.font='10px system-ui,-apple-system,sans-serif';g.fillText('\u2605',campX+14+118+s*14,ty);}}
+    else{g.fillStyle='#334';g.font='8px system-ui,-apple-system,sans-serif';g.fillText('[LOCKED]',campX+14+118,ty);}
+    if(unlk)mkbtn(campX,cy+colPadTop+i*itemStep+2,campW,itemStep,()=>{gameMode='campaign';campaignLevel=i;gs='levelselect';music.play('levelselect');});
   });
 
-  panel(382,cy,W-64-350,colH,TX.warn);          // BOONS & BAFOONS — amber accent
-  g.fillStyle=TX.warn;g.font=F(9,true);g.textAlign='left';
-  g.fillText('BOONS & BAFOONS',398,colHdrY);
+  // ── BOONS & BAFOONS column ──
+  panel(boonsX,cy,boonsW,colH,TX.warn);
+  g.fillStyle=TX.warn;g.font='bold 9px system-ui,-apple-system,sans-serif';g.textAlign='left';
+  g.fillText('BOONS & BAFOONS',boonsX+14,colHdrY);
   BASE_PTYPES.forEach((type,i)=>{
-    const pd=PUPS[type],sx=398,ty=colHdrY+Math.round(colPad+i*itemStep);
+    const pd=PUPS[type],sx=boonsX+14,ty=cy+colPadTop+i*itemStep+itemStep;
     g.fillStyle=pd.dark;g.fillRect(sx,ty-9,12,11);
     g.strokeStyle=pd.col;g.lineWidth=0.7;g.strokeRect(sx,ty-9,12,11);
     g.fillStyle=pd.col;g.font='bold 6px system-ui,-apple-system,sans-serif';g.textAlign='center';g.fillText(pd.label.slice(0,3),sx+6,ty-1);
-    g.fillStyle=TX.body;g.font=FS(9.5,false);g.textAlign='left';
+    g.fillStyle=TX.body;g.font=Math.round(9*fs)+'px system-ui,-apple-system,sans-serif';g.textAlign='left';
     g.fillText(pd.label+' \u2014 '+pd.desc,sx+16,ty);
   });
-  // +HP (raid-only) shown dimmed at bottom
-  {const pd=PUPS.HEALTH,sx=398,ty=colHdrY+Math.round(colPad+BASE_PTYPES.length*itemStep);
-  g.fillStyle='#150010';g.fillRect(sx,ty-9,12,11);
-  g.strokeStyle='#441028';g.lineWidth=0.6;g.strokeRect(sx,ty-9,12,11);
-  g.fillStyle='#662244';g.font='bold 6px system-ui,-apple-system,sans-serif';g.textAlign='center';g.fillText('+HP',sx+6,ty-1);
-  g.fillStyle='#3a2030';g.font=FS(9.5,false);g.textAlign='left';
-  g.fillText(pd.label+' \u2014 '+pd.desc,sx+16,ty);}
-  cy+=colH+Math.round(33+4*fs); // 33px breathing room above start button
+  {const pd=PUPS.HEALTH,sx=boonsX+14,ty=cy+colPadTop+BASE_PTYPES.length*itemStep+itemStep;
+  g.fillStyle=pd.dark;g.fillRect(sx,ty-9,12,11);
+  g.strokeStyle=pd.col;g.lineWidth=0.7;g.strokeRect(sx,ty-9,12,11);
+  g.fillStyle=pd.col;g.font='bold 6px system-ui,-apple-system,sans-serif';g.textAlign='center';g.fillText('+HP',sx+6,ty-1);
+  g.fillStyle=TX.body;g.font=Math.round(9*fs)+'px system-ui,-apple-system,sans-serif';g.textAlign='left';
+  g.fillText(pd.label+' \u2014 '+pd.desc+' (Raids Only)',sx+16,ty);}
+
+  cy+=colH+20;
 
   // ── START BUTTON ──
   const btnLbl=gameMode==='campaign'?'START CAMPAIGN  \u25ba':'SPACE / ENTER TO BEGIN';
@@ -1909,28 +2071,6 @@ function drawtitle(){
     else startFreeplay();
   });
   cy+=btnH+Math.round(5+2*fs);
-
-  // ── FOOTER ──
-  if(cy+54<H){
-    g.fillStyle=TX.body;g.font='italic '+FS(10,false);g.textAlign='center';
-    g.fillText('"Whether there is one worm or many \u2014 the answer changes everything."',W/2,cy+12);
-    g.fillStyle=TX.faint;g.font=FS(9,false);
-    g.fillText('DGTH v3  \xb7  Tricks \xb7 Claude \xb7 ChatGPT \xb7 Grok  \xb7  Feb 2026',W/2,cy+26);
-    // ── 5 CRYSTAL COMBO LOCK ──
-    const GR=6,GAP=20,gsy=cy+44;
-    const gsx=W/2-GAP*2;
-    GEM_DEFS.forEach((def,i)=>{
-      const gx=gsx+i*GAP;
-      const litFlash=gemFlash[i]>0;
-      drawGem(gx,gsy,GR,def,litFlash);
-      mkbtn(gx-GR-4,gsy-GR-4,GR*2+8,GR*2+8,()=>onGemClick(i));
-    });
-    // subtle hint label
-    if(shantyUnlocked){
-      g.fillStyle='#ffd700';g.font=FS(8,false);g.textAlign='center';
-      g.fillText('\u266a unlocked',W/2,gsy+GR+18);
-    }
-  }
 }
 
 // ── LEVEL SELECT ──────────────────────────────────────────────────────────────
@@ -2125,6 +2265,12 @@ function drawhud(){
   g.fillStyle=mOn?TX.good:TX.bad;g.font=FS(8,false);g.textAlign='center';
   g.fillText('\u266a '+(mOn?'ON':'OFF'),mbx+mbw/2,mby+11);
   mkbtn(mbx,mby,mbw,mbh,()=>music.toggleMute());}
+  // Coin counter — small pill left of music toggle
+  {const cbx=W-104,cby=GY-20,cbw=46,cbh=16;
+  g.fillStyle='#141200';g.fillRect(cbx,cby,cbw,cbh);
+  g.strokeStyle='#3a3000';g.lineWidth=0.7;g.strokeRect(cbx,cby,cbw,cbh);
+  g.fillStyle='#ffd700';g.font=FS(8,true);g.textAlign='center';
+  g.fillText('\u25c9 '+(save.coins+runCoins),cbx+cbw/2,cby+11);}
 }
 
 // ── BOSS VISUALS ──────────────────────────────────────────────────────────────
@@ -2527,7 +2673,9 @@ function drawend(){
       mkbtn(rb2x,rb2y,rb2w,rb2h,()=>initRaid(currentRaid.id));
     }
     g.fillStyle=TX.faint;g.font='italic '+FS(9,false);g.textAlign='center';
-    g.fillText('"The substrate is already complete. You merely traverse it."',W/2,H-18);
+    g.fillText('"The substrate is already complete. You merely traverse it."',W/2,H-28);
+    g.fillStyle='#ffd700';g.font=FS(9,true);g.textAlign='center';
+    g.fillText('\u25c9 +'+runCoins+' coins earned  \xb7  total: '+(save.coins).toLocaleString(),W/2,H-12);
     return;
   }
 
@@ -2593,8 +2741,9 @@ function drawend(){
   } else {
     g.fillStyle=C1;g.font=FS(11,false);g.textAlign='center';g.fillText('SPACE or ENTER to continue',W/2,H/2+130);
   }
-  g.fillStyle=TX.faint;g.font='italic '+FS(10,false);g.textAlign='center';
-  g.fillText('"Whether there is one worm or many \u2014 the answer changes everything."',W/2,H-16);
+  // Coin summary
+  g.fillStyle='#ffd700';g.font=FS(9,true);g.textAlign='center';
+  g.fillText('\u25c9 +'+runCoins+' coins earned  \xb7  total: '+(save.coins).toLocaleString(),W/2,H-14);
 }
 
 // ── MUSIC ENGINE ──────────────────────────────────────────────────────────────
@@ -2786,6 +2935,8 @@ const GEM_DEFS=[
 const GEM_COMBO=[2,1,3,0,4]; // amethyst→sapphire→emerald→topaz→ruby
 let gemSeq=[],gemFlash=[0,0,0,0,0],gemError=0,shantyUnlocked=false;
 let scrollY=0;
+let diffDropOpen=false;
+let htpCard=0;
 
 function drawGem(cx,cy,r,def,lit){
   const pr=(h,f)=>parseInt(h.slice(1+f*2,3+f*2),16);
@@ -2819,174 +2970,88 @@ function gemOct(cx,cy,r){
   g.closePath();
 }
 
-// ── EASTER EGG BRIEF TEXT ─────────────────────────────────────────────────────
-// Cleaned for public consumption: no personal references, theory + game focused
+// ── PATCH NOTES (was: BRIEF easter egg lore scroll) ──────────────────────────
 const BRIEF=[
   {t:'gap'},{t:'gap'},
-  {t:'h1',s:'D G T H  v 3'},
+  {t:'h1',s:'D G T H  v 3  \u2014  PATCH NOTES'},
   {t:'h2',s:'NON-LINEAR TRAVERSAL OF A STATIC INFORMATIONAL SUBSTRATE'},
   {t:'gap'},
-  {t:'sub',s:'A hidden document. You found it the right way.'},
+  {t:'sub',s:'Session 1 \u2014 Foundation Update \u2014 April 2026'},
   {t:'gap'},{t:'gap'},
 
   {t:'rule'},
-  {t:'h3',s:'WHAT IS THIS GAME, REALLY?'},
+  {t:'h3',s:'v3.5 \u2014 Session 1: Foundation'},
   {t:'rule'},
   {t:'gap'},
-  {t:'body',s:'This isn\u0027t just a snake game.'},
-  {t:'gap'},
-  {t:'body',s:'It\u0027s a playable version of a real theory about how consciousness works \u2014 written in February 2026 by one human and three AI systems working together.'},
-  {t:'gap'},
-  {t:'body',s:'The theory is called the Density-Gated Traversal Hypothesis. DGTH v3.'},
+  {t:'bullet',s:'Speed decoupled from cell density. Movement is now constant. Dense cells reward MORE points, not slower traversal. Input lag eliminated.'},
+  {t:'bullet',s:'Capture timers tightened across all difficulties: Normal 11s\u21928s, Heroic 7s\u21925s, Mythic/Legendary 7s\u21924s. Stagnation is now meaningfully punishing.'},
+  {t:'bullet',s:'Text scale defaulted to 1.05 (was 0.9). All HUD labels are visibly larger. Text size buttons recalibrated.'},
+  {t:'bullet',s:'localStorage persistence added. Campaign stars, raid completions, difficulty preference, and coin total survive page refresh.'},
+  {t:'bullet',s:'Coin economy implemented. Coins accumulate in real time during every match. +1 per new cell, +2 dense cell bonus, +5 seam crossing, +3 powerup, +25 win, +50 three-star campaign, +75 raid clear, +15 raid wipe.'},
+  {t:'bullet',s:'Coin counter added to in-match HUD. Coin total shown on end screen with earned-this-run breakdown.'},
+  {t:'bullet',s:'Easter egg gem click removed. Gems are now decorative. Tester unlock is a keyboard sequence on the title screen \u2014 undocumented.'},
+  {t:'bullet',s:'Brief replaced with this patch notes screen. Accessible via PATCH NOTES button in the title footer.'},
   {t:'gap'},{t:'gap'},
 
   {t:'rule'},
-  {t:'h3',s:'THE BIG IDEA'},
+  {t:'h3',s:'v3.4 \u2014 Music & Sound'},
   {t:'rule'},
   {t:'gap'},
-  {t:'accent',s:'"You are not creating your thoughts. You are finding them."'},
-  {t:'gap'},
-  {t:'body',s:'Imagine every idea, memory, and feeling that could ever exist is already out there \u2014 like a vast dark library, complete and unchanging.'},
-  {t:'gap'},
-  {t:'body',s:'Your mind is not writing the book.'},
-  {t:'body',s:'Your mind is a worm moving through a book that already exists.'},
-  {t:'gap'},
-  {t:'body',s:'Some parts of the library are dense and hard to move through. Those parts take time \u2014 but they\u0027re worth more. Other parts have already been read, already softened. You move faster there, but you\u0027ve seen it before.'},
-  {t:'gap'},
-  {t:'body',s:'The direction you\u0027re facing matters. You can only read what\u0027s in front of you.'},
-  {t:'gap'},{t:'gap'},
-
-  {t:'rule'},
-  {t:'h3',s:'THE FOUR PIECES'},
-  {t:'rule'},
-  {t:'gap'},
-  {t:'prim',s:'\u03a9','d':'The substrate. The complete library. Everything that could ever be known. It doesn\u0027t grow. It doesn\u0027t change. It just is.'},
-  {t:'gap'},
-  {t:'prim',s:'C','d':'Consciousness. You. The worm. You don\u0027t create \u2014 you traverse. In this game, that\u0027s C1. The blue one.'},
-  {t:'gap'},
-  {t:'prim',s:'F','d':'The filter. The direction your awareness is pointing. You can only absorb what you\u0027re currently facing. Turn around and the same ground reads differently.'},
-  {t:'gap'},
-  {t:'prim',s:'IT','d':'Intersection Topology. The seams where different zones of the library touch. Cross a seam and something clicks. That\u0027s the +50 bonus firing.'},
-  {t:'gap'},{t:'gap'},
-
-  {t:'rule'},
-  {t:'h3',s:'HOW IT MAPS TO THE GAME'},
-  {t:'rule'},
-  {t:'gap'},
-  {t:'bullet',s:'The dark grid is \u03a9. The complete substrate. It was always there.'},
-  {t:'bullet',s:'Your worm is C. Moving through it, not creating it.'},
-  {t:'bullet',s:'Dense cells (nearly black) = high density. Hard, slow, worth more points.'},
-  {t:'bullet',s:'Visited cells that lighten up = softened. You were there. The path stays.'},
-  {t:'bullet',s:'Crossing zone borders = Seam Events. That +50 is intersection topology firing.'},
-  {t:'bullet',s:'Locked red zones = knowledge you can\u0027t access yet. Score more, unlock more.'},
-  {t:'bullet',s:'Filter Capture = the failure mode. You stop exploring. You loop. Three times and it\u0027s over.'},
-  {t:'gap'},{t:'gap'},
-
-  {t:'rule'},
-  {t:'h3',s:'THE QUESTION THE GAME DOESN\u0027T ANSWER'},
-  {t:'rule'},
-  {t:'gap'},
-  {t:'accent',s:'"Is there one worm \u2014 or many?"'},
-  {t:'gap'},
-  {t:'body',s:'If there\u0027s only one consciousness, then everything connects. One substrate, one reader, one infinite path.'},
-  {t:'gap'},
-  {t:'body',s:'If there are many \u2014 if you and I are different worms in the same library \u2014 then communication is just two paths trying to find the same seam from opposite sides.'},
-  {t:'gap'},
-  {t:'body',s:'The two-worm mode you\u0027re playing? That\u0027s that question, made into a game.'},
-  {t:'gap'},
-  {t:'body',s:'We called it DGTH-nC. The n-Consciousness branch.'},
-  {t:'gap'},{t:'gap'},
-
-  {t:'rule'},
-  {t:'h3',s:'WHAT FILTER CAPTURE ACTUALLY MEANS'},
-  {t:'rule'},
-  {t:'gap'},
-  {t:'body',s:'In the theory, Filter Capture is when consciousness stops finding new territory.'},
-  {t:'gap'},
-  {t:'bullet',s:'Doomscrolling the same content loop.'},
-  {t:'bullet',s:'Revisiting the same argument and calling it thinking.'},
-  {t:'bullet',s:'Only talking to people who already agree with you.'},
-  {t:'bullet',s:'Mistaking comfort for understanding.'},
-  {t:'gap'},
-  {t:'body',s:'The worm isn\u0027t dead. It\u0027s just spinning. In a box of soft cells it already knows.'},
-  {t:'gap'},
-  {t:'body',s:'In the game, that costs you three chances.'},
-  {t:'body',s:'In real life, the cost is harder to measure.'},
-  {t:'gap'},{t:'gap'},
-
-  {t:'rule'},
-  {t:'h3',s:'WHO MADE THIS'},
-  {t:'rule'},
-  {t:'gap'},
-  {t:'body',s:'The theory was written by one human researcher working alongside three AI systems: Claude (Anthropic), ChatGPT (OpenAI), and Grok (xAI).'},
-  {t:'gap'},
-  {t:'body',s:'The game was built the same way \u2014 human ideas, AI execution, back and forth until something real emerged.'},
-  {t:'gap'},
-  {t:'body',s:'It\u0027s a small demonstration of the seam idea. Different minds, different traversal paths, finding compatible angles.'},
-  {t:'gap'},{t:'gap'},
-
-  {t:'rule'},
-  {t:'accent',s:'"Whether there is one worm or many \u2014 the answer changes everything."'},
-  {t:'rule'},
-  {t:'gap'},{t:'gap'},
-
-  {t:'rule'},
-  {t:'h3',s:'PATCH NOTES \u2014 DEVELOPMENT HISTORY'},
-  {t:'rule'},
-  {t:'gap'},
-
-  {t:'head',s:'v3.0 \u2014 February 2026 \u2014 Initial Build'},
-  {t:'bullet',s:'Core traversal engine: 38\xd724 grid, density-weighted cells, seam detection.'},
-  {t:'bullet',s:'Campaign: 5 levels (GENESIS, THE LABYRINTH, THE DEEP, THE FRACTURE, THE CRUCIBLE) with unique themes, events, and AI behavior per level.'},
-  {t:'bullet',s:'Modes: Solo, 2P Local, VS AI, Campaign. Difficulty: Normal / Heroic / Mythic / Legendary.'},
-  {t:'bullet',s:'Power-ups: Boost, Bomb, Shield, Freeze, Scramble. Stars system (0\u20133 per level, 15 total).'},
-  {t:'bullet',s:'Music engine: per-level adaptive chip-tune tracks. Starfield background canvas, border glow color-synced to game state.'},
-  {t:'bullet',s:'Crystal gem easter egg \u2014 amethyst \u2192 sapphire \u2192 emerald \u2192 topaz \u2192 ruby \u2014 unlocks the shanty and this document.'},
-  {t:'gap'},
-
-  {t:'head',s:'v3.1 \u2014 Raids System'},
-  {t:'bullet',s:'Added \u2694 RAIDS: three high-difficulty boss encounters unlocked at 8 campaign stars.'},
-  {t:'bullet',s:'VORRAX (3\xd73) \u2014 The Devouring Flame. Void Breath (3-cell sweep), Fragment Spawn.'},
-  {t:'bullet',s:'XORRATH (4\xd74) \u2014 The Omnivoid. Void Gaze (rotating beam), Substrate Tendrils, Corruption (inverted controls at 35% devoured).'},
-  {t:'bullet',s:'MALGATH (6\xd74) \u2014 The Entropy Deceiver. Three phases. Void Shatter, Entropy Bolts, Nullspace. Enrage at 4 minutes.'},
-  {t:'bullet',s:'HP system: 100 HP per worm. +HP boon heals 35 or battle-rezzes a fallen ally at 30 HP.'},
-  {t:'bullet',s:'Difficulty scales boss speed (LEGENDARY: 50% move interval) and damage (LEGENDARY: 2\xd7). Win threshold scales from 68% to 86% coverage.'},
-  {t:'bullet',s:'Boss pathfinding: BFS lookahead (12 steps) navigates through player paths rather than getting trapped by them.'},
-  {t:'gap'},
-
-  {t:'head',s:'v3.2 \u2014 UI Overhaul'},
-  {t:'bullet',s:'Mode buttons reordered (Solo \u2192 2P Local \u2192 VS AI \u2192 Campaign \u2192 \u2694 RAIDS) with WoW quality-tier colors: green, blue, purple, orange, pink.'},
-  {t:'bullet',s:'RAIDS locked until 8 stars; easter egg grants full 15 stars + all raids immediately.'},
-  {t:'bullet',s:'Canvas viewport scaling \u2014 fills the screen at any resolution without touching internal coordinate math.'},
-  {t:'bullet',s:'Raid select layout rebuilt: back button moved to top-left, cards compact to fit H=640 without overlap.'},
-  {t:'bullet',s:'HP bars moved to bottom HUD strip (same row as QUIT and music toggle). Coverage progress bar joins them at 16px height.'},
-  {t:'bullet',s:'Raid center column decluttered: TIME display suppressed in raid mode, boss name and elapsed spread across freed space.'},
-  {t:'bullet',s:'Two-column panels (Campaign Levels / Boons) given more bottom breathing room; \u2b9e RAIDS star counter shown in mode panel.'},
-  {t:'gap'},
-
-  {t:'head',s:'v3.3 \u2014 Balance & Boss Fixes'},
-  {t:'bullet',s:'Xorrath Void Gaze: cooldown extended from 10\u201316s to 22\u201334s between beams. Rotation slowed. Damage trimmed.'},
-  {t:'bullet',s:'Malgath phase 1 now has Void Shatter \u2014 clusters of cells that vaporize with a 1.3s warning. Escalates each phase (3\u21925\u21927 cells, 18s\u219212s\u21928s).'},
-  {t:'bullet',s:'Boss edge-avoidance penalty added (edge clearance \xd73.5 in pathfinding) to prevent corner-trapping.'},
-  {t:'bullet',s:'Dead worm in duo: stops moving, stops taking damage, shows FALLEN overlay. +HP boon triggers battle rez.'},
-  {t:'bullet',s:'Campaign now defaults to You vs. AI (not solo). Raidselect defaults to SOLO mode on every entry.'},
-  {t:'gap'},
-
-  {t:'head',s:'v3.4 \u2014 Music & Sound'},
   {t:'bullet',s:'Bug fix: getLevelTrack() was never defined \u2014 no campaign music played at all. Now fixed; each level has its own track.'},
   {t:'bullet',s:'Raid music added: VORRAX at 185bpm (E minor, relentless sawtooth chase), XORRATH at 158bpm (chromatic tritone horror), MALGATH at 200bpm (D minor apocalypse, fastest track in the game).'},
   {t:'bullet',s:'Damage hit sound: 0.16s descending sawtooth (380\u219295 Hz) + white noise burst fires on every raid damage event.'},
   {t:'gap'},{t:'gap'},
 
   {t:'rule'},
+  {t:'h3',s:'v3.3 \u2014 Balance & Boss Fixes'},
+  {t:'rule'},
+  {t:'gap'},
+  {t:'bullet',s:'Xorrath Void Gaze: cooldown extended from 10\u201316s to 22\u201334s between beams. Rotation slowed. Damage trimmed.'},
+  {t:'bullet',s:'Malgath phase 1 now has Void Shatter \u2014 clusters of cells that vaporize with a 1.3s warning. Escalates each phase (3\u21925\u21927 cells, 18s\u219212s\u21928s).'},
+  {t:'bullet',s:'Boss edge-avoidance penalty added (edge clearance \xd73.5 in pathfinding) to prevent corner-trapping.'},
+  {t:'bullet',s:'Dead worm in duo: stops moving, stops taking damage, shows FALLEN overlay. +HP boon triggers battle rez.'},
+  {t:'bullet',s:'Campaign now defaults to You vs. AI (not solo). Raidselect defaults to SOLO mode on every entry.'},
+  {t:'gap'},{t:'gap'},
+
+  {t:'rule'},
+  {t:'h3',s:'v3.2 \u2014 UI Overhaul'},
+  {t:'rule'},
+  {t:'gap'},
+  {t:'bullet',s:'Mode buttons reordered (Solo \u2192 2P Local \u2192 VS AI \u2192 Campaign \u2192 \u2694 RAIDS) with WoW quality-tier colors.'},
+  {t:'bullet',s:'Canvas viewport scaling \u2014 fills the screen at any resolution without touching internal coordinate math.'},
+  {t:'bullet',s:'HP bars moved to bottom HUD strip (same row as QUIT and music toggle). Coverage progress bar joins them at 16px height.'},
+  {t:'bullet',s:'Two-column panels (Campaign Levels / Boons) given more breathing room.'},
+  {t:'gap'},{t:'gap'},
+
+  {t:'rule'},
+  {t:'h3',s:'v3.1 \u2014 Raids System'},
+  {t:'rule'},
+  {t:'gap'},
+  {t:'bullet',s:'Added \u2694 RAIDS: three high-difficulty boss encounters unlocked at 8 campaign stars.'},
+  {t:'bullet',s:'VORRAX (3\xd73) \u2014 The Devouring Flame. Void Breath (3-cell sweep), Fragment Spawn.'},
+  {t:'bullet',s:'XORRATH (4\xd74) \u2014 The Omnivoid. Void Gaze (rotating beam), Substrate Tendrils, Corruption (inverted controls at 35% devoured).'},
+  {t:'bullet',s:'MALGATH (6\xd74) \u2014 The Entropy Deceiver. Three phases. Void Shatter, Entropy Bolts, Nullspace. Enrage at 3 minutes.'},
+  {t:'bullet',s:'HP system: 100 HP per worm. +HP boon heals 35 or battle-rezzes a fallen ally at 30 HP.'},
+  {t:'gap'},{t:'gap'},
+
+  {t:'rule'},
+  {t:'h3',s:'v3.0 \u2014 Initial Build \u2014 February 2026'},
+  {t:'rule'},
+  {t:'gap'},
+  {t:'bullet',s:'Core traversal engine: 38\xd724 grid, density-weighted cells, seam detection, zone topology.'},
+  {t:'bullet',s:'Campaign: 5 levels with unique themes, events, and AI behavior. Modes: Solo, 2P Local, VS AI, Campaign. Difficulty: Normal / Heroic / Mythic / Legendary.'},
+  {t:'bullet',s:'Power-ups: Boost, Bomb, Shield, Freeze, Scramble. Stars system (0\u20133 per level, 15 total).'},
+  {t:'bullet',s:'Music engine: per-level adaptive chip-tune tracks. Starfield background canvas, border glow color-synced to game state.'},
+  {t:'gap'},{t:'gap'},
+
+  {t:'rule'},
   {t:'accent',s:'"Whether there is one worm or many \u2014 the answer changes everything."'},
   {t:'rule'},
   {t:'gap'},{t:'gap'},
-
-  {t:'sub',s:'DGTH v3  \xb7  Claude \xb7 ChatGPT \xb7 Grok  \xb7  February 2026'},
+  {t:'sub',s:'DGTH v3  \xb7  Claude \xb7 ChatGPT \xb7 Grok  \xb7  2026'},
   {t:'gap'},
-  {t:'sub',s:'Click anywhere or press ESC to return to \u03a9'},
-  {t:'gap'},{t:'gap'},{t:'gap'},{t:'gap'},
+  {t:'sub',s:'Click anywhere or press ESC to return'},
+  {t:'gap'},{t:'gap'},{t:'gap'},
 ];
 
 const MTRACKS={
@@ -3004,29 +3069,30 @@ const MTRACKS={
   raid_2(){mplay('raid_2',[MS.malg_mel,200,'sawtooth',0.14],[MS.malg_bas,200,'square',0.28],[MS.malg_ctr,200,'sawtooth',0.10]);},
 };
 
-function onGemClick(idx){
-  gemFlash[idx]=1;
-  gemSeq.push(idx);
-  // check against combo so far
-  for(let i=0;i<gemSeq.length;i++){
-    if(gemSeq[i]!==GEM_COMBO[i]){
-      // wrong — reset with error flash
-      gemError=1;gemSeq=[];
-      gemFlash=gemFlash.map(()=>0);
-      return;
-    }
-  }
-  if(gemSeq.length===GEM_COMBO.length){
-    // correct full combo!
+// ── TESTER UNLOCK — keyboard sequence on title screen ────────────────────────
+// Sequence: Up Up Down Left Right Left (6 keys, undocumented)
+const UNLOCK_SEQ=['ArrowUp','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft'];
+let unlockBuf=[];
+function onGemClick(idx){} // gems are now decorative — no-op
+
+function checkUnlockSeq(key){
+  if(gs!=='title')return;
+  unlockBuf.push(key);
+  if(unlockBuf.length>UNLOCK_SEQ.length)unlockBuf.shift();
+  if(unlockBuf.length===UNLOCK_SEQ.length&&unlockBuf.every((k,i)=>k===UNLOCK_SEQ[i])){
+    unlockBuf=[];
     shantyUnlocked=true;
-    campaignUnlocked=5;                      // all campaign levels
-    campaignStars=[3,3,3,3,3];              // full stars → unlocks RAIDS button
-    raidUnlocked=[true,true,true];           // all raids
-    gemSeq=[];
+    // Live state
+    campaignStars=[3,3,3,3,3];
+    campaignUnlocked=5;
+    raidCompleted=[true,true,true];
+    raidUnlocked=[true,true,true];
+    // Persist
+    save.campaignStars=[3,3,3,3,3];
+    save.raidCompleted=[true,true,true];
+    persist();
     gemFlash=gemFlash.map(()=>1.5);
     music.play('shanty');
-    scrollY=0;gs='brief';
-    console.log('%c\u{1F41B} ye found it. the worm sings. all gates open.','color:#ffd700;font-size:14px;font-family:Courier New');
   }
 }
 
@@ -3036,6 +3102,7 @@ const ARRS={ArrowUp:0,ArrowRight:1,ArrowDown:2,ArrowLeft:3};
 document.addEventListener('keydown',e=>{
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
   if(gs==='title'){
+    checkUnlockSeq(e.key);
     if(!music.playing)music.play('title'); // only start if nothing is playing yet
     if(e.key===' '||e.key==='Enter'){if(gameMode==='campaign'){gs='levelselect';music.play('levelselect');}else startFreeplay();}
     return;
@@ -3077,6 +3144,11 @@ cv.addEventListener('click',e=>{
   const mx=(e.clientX-r.left)*(W/r.width),my=(e.clientY-r.top)*(H/r.height);
   if(gs==='brief'){gs='title';music.stop();music.play('title');scrollY=0;return;}
   if(gs==='title'&&!music.playing)music.play('title');
+  // Close diff dropdown if click lands outside the button area
+  if(gs==='title'&&diffDropOpen){
+    const hit=btns.some(b=>mx>=b.x&&mx<b.x+b.w&&my>=b.y&&my<b.y+b.h);
+    if(!hit)diffDropOpen=false;
+  }
   btns.forEach(b=>{if(mx>=b.x&&mx<b.x+b.w&&my>=b.y&&my<b.y+b.h)b.fn();});
 });
 
@@ -3249,6 +3321,7 @@ function updateBorderAnim(now){
 }
 
 function loop(now){update(now);updateBorderAnim(now);render();updateMobileUI();requestAnimationFrame(loop);}
+loadSave(); // hydrate state from localStorage before first frame
 requestAnimationFrame(loop);
 
 // ── MOBILE CONTROLS ───────────────────────────────────────────────────────────
