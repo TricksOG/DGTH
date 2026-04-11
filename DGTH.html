@@ -2026,7 +2026,7 @@ function updateNyxtherion(dt){
   }
   if(boss.phaseWalkActive>0)boss.phaseWalkActive=Math.max(0,boss.phaseWalkActive-dt);
 
-  // Echo Bloom
+  // Echo Bloom — uses voided (temporary) NOT devoured, so the denominator stays honest
   boss.bloomTimer-=dt;
   if(boss.bloomTimer<=0){
     boss.bloomTimer=22+Math.random()*10;
@@ -2048,7 +2048,13 @@ function updateNyxtherion(dt){
           const nr=r+dr,nc=c+dc;
           if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&!sub[nr][nc].devoured&&!boss.cells.has(nr+','+nc)){
             if(!seed.cells.some(x=>x.r===nr&&x.c===nc)&&!newCells.some(x=>x.r===nr&&x.c===nc)){
-              sub[nr][nc].devoured=true;boss.devouredCount++;newCells.push({r:nr,c:nc});
+              // Void temporarily — NOT devoured, so win denominator stays fixed
+              sub[nr][nc].voided=Math.max(sub[nr][nc].voided||0, seed.life+0.5);
+              newCells.push({r:nr,c:nc});
+              // Damage player if standing on a blooming cell
+              [p1,(gameMode!=='solo'?p2:null)].forEach(w=>{
+                if(w&&w.gx===nc&&w.gy===nr)raidDmg(w,12,'ECHO BLOOM');
+              });
             }
           }
         });
@@ -3505,11 +3511,14 @@ function drawBoss(){
       const ph=Math.sin(Date.now()/60)*0.5+0.5;
       g.fillStyle=`rgba(170,100,255,${0.06*ph})`;g.fillRect(0,GY,W,ROWS*CS);
     }
-    // Bloom seeds — show spreading void with purple glow
+    // Bloom seeds — pulsing void overlay (cells are voided not devoured, so they restore)
     boss.bloomSeeds.forEach(seed=>{
+      const lifeFrac=seed.life/8;
+      const pulse=(Math.sin(Date.now()/120)*0.3+0.7)*lifeFrac;
       seed.cells.forEach(({r,c})=>{
-        g.fillStyle='rgba(80,20,140,0.6)';g.fillRect(c*CS,GY+r*CS,CS,CS);
-        g.strokeStyle='rgba(170,100,255,0.5)';g.lineWidth=0.8;g.strokeRect(c*CS+0.5,GY+r*CS+0.5,CS-1,CS-1);
+        g.fillStyle=`rgba(120,40,220,${0.45*pulse})`;g.fillRect(c*CS,GY+r*CS,CS,CS);
+        g.strokeStyle=`rgba(200,120,255,${0.6*pulse})`;g.lineWidth=1;
+        g.strokeRect(c*CS+1,GY+r*CS+1,CS-2,CS-2);
       });
     });
     // Cascade spiral
