@@ -410,7 +410,7 @@ const blend=(h1,h2,t)=>{
 
 // ── SAVE DATA ─────────────────────────────────────────────────────────────────
 const SAVE_KEY='dgth_v3_save';
-const DEFAULT_SAVE={coins:0,campaignStars:[0,0,0,0,0,0,0,0],raidCompleted:[false,false,false,false,false,false],difficulty:'NORMAL',totalRuns:0,characterName:'',devUnlocked:false};
+const DEFAULT_SAVE={coins:0,campaignStars:[0,0,0,0,0,0,0,0],raidCompleted:[false,false,false,false,false,false],difficulty:'NORMAL',totalRuns:0,characterName:'',devUnlocked:false,upgrades:{shell:1,legs:1,senses:1,core:1},cosmetic:'default'};
 let save={...DEFAULT_SAVE};
 let runCoins=0; // coins earned this run, banked at end
 
@@ -435,6 +435,7 @@ function loadSave(){
   difficulty=save.difficulty||'NORMAL';
   // Apply dev unlock if saved
   if(save.devUnlocked)applyDevUnlock();
+  loadBurrowFromSave();
 }
 function persist(){
   save.campaignStars=campaignStars.slice();
@@ -1113,7 +1114,7 @@ function update(now){
   updateScorePopups(dt);
   updateShake(dt);
   updateVignette(dt);
-  if(gs==='title'||gs==='levelselect'||gs==='raidselect'){
+  if(gs==='title'||gs==='levelselect'||gs==='raidselect'||gs==='burrow'){
     gemFlash=gemFlash.map(f=>Math.max(0,f-dt*2.5));
     if(gemError>0)gemError=Math.max(0,gemError-dt*3);
     return;
@@ -1250,6 +1251,7 @@ function render(){
   if(gs==='title'){drawtitle();return;}
   if(gs==='levelselect'){drawlevelselect();return;}
   if(gs==='raidselect'){drawraidselect();return;}
+  if(gs==='burrow'){drawBurrow();return;}
   if(gs==='paused'||gs==='end')btns=[];
 
   // Screen shake — translate on top of existing ps transform
@@ -2588,10 +2590,9 @@ function drawtitle(){
 
   cy+=colH+20;
 
-  // ── START BUTTON ──
+  // ── START BUTTON + BURROW ──
   const btnLbl=gameMode==='campaign'?'START CAMPAIGN  \u25ba':'SPACE / ENTER TO BEGIN';
   const btnH=Math.round(36+4*fs);
-  // Animate border + text color in sync with the border palette
   const _pal=getBorderPalette();
   const _t2=Date.now()/1000;
   const _p=(Math.sin(_t2*1.4)+1)/2;
@@ -2603,11 +2604,19 @@ function drawtitle(){
   const _pulse=(Math.sin(_t2*2.8)+1)/2;
   const btnCol=`rgb(${_br},${_bg},${_bb})`;
   const btnDark=`rgba(${_br},${_bg},${_bb},0.08)`;
+
+  // Burrow button — left of start
+  const bbw=110,bbh=btnH,bbx=W/2-150-bbw-8,bby=cy;
+  g.fillStyle='#0a0a18';g.fillRect(bbx,bby,bbw,bbh);
+  g.strokeStyle='#c8860a';g.lineWidth=1.2;g.strokeRect(bbx,bby,bbw,bbh);
+  g.fillStyle='#ffd700';g.font=F(10,true);g.textAlign='center';
+  g.fillText('\u25c9 THE BURROW',bbx+bbw/2,bby+Math.round(btnH*0.64));
+  mkbtn(bbx,bby,bbw,bbh,()=>{gs='burrow';});
+
+  // Main start button
   g.fillStyle=btnDark;g.fillRect(W/2-150,cy,300,btnH);
   g.strokeStyle=btnCol;g.lineWidth=1.8+_pulse*0.8;g.strokeRect(W/2-150,cy,300,btnH);
-  // Corner brackets matching panel style
-  const _cm=7;
-  g.lineWidth=2;
+  const _cm=7;g.lineWidth=2;
   [[W/2-150,cy,1,1],[W/2+150,cy,-1,1],[W/2-150,cy+btnH,1,-1],[W/2+150,cy+btnH,-1,-1]].forEach(([bx,by,sx,sy])=>{
     g.beginPath();g.moveTo(bx,by);g.lineTo(bx+sx*_cm,by);g.stroke();
     g.beginPath();g.moveTo(bx,by);g.lineTo(bx,by+sy*_cm);g.stroke();
@@ -2695,6 +2704,282 @@ function drawPadlock(cx,cy,unlocked){
   }
 
   g.shadowBlur=0;g.lineCap='butt';
+}
+
+// ── THE BURROW — SHOP SCREEN ──────────────────────────────────────────────────
+const UPGRADES=[
+  {key:'shell',label:'SHELL',col:'#5bc8f5',desc:'Defense & Capture',
+   tiers:['Standard shell — baseline','Hardened — capture window +20%','Spiked — opponent stagger on curl','Void Plate — -40% raid dmg'],
+   costs:[0,50,150,400]},
+  {key:'legs',label:'LEGS',col:'#4ade80',desc:'Speed & Mobility',
+   tiers:['Standard speed','Swift — +12% move speed','Momentum — speed stack on straights','Sprint Burst — self-generated boost'],
+   costs:[0,50,150,400]},
+  {key:'senses',label:'SENSES',col:'#f5a623',desc:'Awareness',
+   tiers:['Standard senses','Zone Sight — seams always visible','Pup Radar — powerup direction glow','Boss Read — +0.4s warning windows'],
+   costs:[0,50,150,400]},
+  {key:'core',label:'CORE',col:'#cc44ff',desc:'Score Multipliers',
+   tiers:['Standard scoring','Seam Bonus — +25 per crossing','Deep Reader — density mult +15%','Archivist — devoured cell bonus'],
+   costs:[0,50,150,400]},
+];
+
+const COSMETICS=[
+  {key:'default',label:'DEFAULT',col:'#5bc8f5',cost:0,req:null},
+  {key:'ember',label:'EMBER',col:'#ff6622',cost:200,req:null},
+  {key:'obsidian',label:'OBSIDIAN',col:'#8866aa',cost:200,req:null},
+  {key:'void',label:'VOID PLATE',col:'#ff44aa',cost:400,req:'raid'},
+  {key:'gilded',label:'GILDED',col:'#ffd700',cost:800,req:'stars'},
+  {key:'ghost',label:'GHOST',col:'rgba(180,220,255,0.6)',cost:500,req:null},
+];
+
+let burrowTab=0; // 0=upgrades 1=cosmetics
+let burrowUpgrades={shell:1,legs:1,senses:1,core:1};
+let burrowCosmetic='default';
+
+function loadBurrowFromSave(){
+  if(save.upgrades)burrowUpgrades={...{shell:1,legs:1,senses:1,core:1},...save.upgrades};
+  if(save.cosmetic)burrowCosmetic=save.cosmetic;
+}
+
+function drawArmadilloIdle(cx,cy,sz,t,cosmetic){
+  const col=COSMETICS.find(c=>c.key===cosmetic)?.col||'#5bc8f5';
+  const bodyR=sz*0.38;
+  const wobble=Math.sin(t*1.2)*0.04; // gentle breathing
+  const blink=Math.sin(t*0.7)>0.92; // occasional blink
+
+  g.save();g.translate(cx,cy);g.rotate(Math.sin(t*0.4)*0.05+wobble);
+
+  // Body
+  g.fillStyle='#1a3a5a';
+  g.beginPath();g.ellipse(0,0,bodyR,bodyR*0.82,0,0,Math.PI*2);g.fill();
+
+  // Shell plates
+  g.shadowColor=col;g.shadowBlur=10+Math.sin(t*2)*3;
+  g.fillStyle=col;
+  g.beginPath();g.arc(0,0,bodyR*0.92,Math.PI*0.15,Math.PI*0.85);
+  g.lineTo(0,0);g.closePath();g.fill();
+  const plateDark=blend(typeof col==='string'&&col.startsWith('#')?col:'#5bc8f5','#000000',0.35);
+  g.fillStyle=plateDark;
+  g.beginPath();g.arc(0,-bodyR*0.1,bodyR*0.72,Math.PI*0.25,Math.PI*0.75);
+  g.lineTo(0,-bodyR*0.1);g.closePath();g.fill();
+  g.shadowBlur=0;
+
+  // Snout
+  g.fillStyle='#1a3a5a';
+  g.beginPath();g.ellipse(-bodyR*0.55,0,bodyR*0.28,bodyR*0.18,0,0,Math.PI*2);g.fill();
+
+  // Eye — blinks
+  if(!blink){
+    g.fillStyle='#ffffff';g.beginPath();g.arc(-bodyR*0.5,-bodyR*0.22,bodyR*0.1,0,Math.PI*2);g.fill();
+    g.fillStyle='#111';g.beginPath();g.arc(-bodyR*0.52,-bodyR*0.23,bodyR*0.055,0,Math.PI*2);g.fill();
+  } else {
+    g.strokeStyle='#ffffff';g.lineWidth=1;
+    g.beginPath();g.moveTo(-bodyR*0.58,-bodyR*0.22);g.lineTo(-bodyR*0.42,-bodyR*0.22);g.stroke();
+  }
+
+  // Legs — idle sway
+  g.fillStyle='#1a3a5a';
+  const legSway=Math.sin(t*1.5)*0.06;
+  [[-0.25,0.55+legSway],[0.25,0.55-legSway],[-0.25,-0.3-legSway],[0.25,-0.3+legSway]].forEach(([lx,ly])=>{
+    g.beginPath();g.ellipse(lx*bodyR*2,ly*bodyR*1.1,bodyR*0.18,bodyR*0.12,0,0,Math.PI*2);g.fill();
+  });
+
+  // Weight shift — tiny up/down bob
+  g.restore();
+}
+
+function drawBurrow(){
+  g.fillStyle='#06060f';g.fillRect(0,0,W,H);btns=[];
+  const t=Date.now()/1000;
+
+  // Radial glow
+  const grad=g.createRadialGradient(W/2,H*0.4,20,W/2,H*0.4,W*0.6);
+  grad.addColorStop(0,'rgba(30,20,80,0.6)');grad.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=grad;g.fillRect(0,0,W,H);
+
+  // Header
+  g.fillStyle='#ffd700';g.font='bold 18px system-ui,-apple-system,sans-serif';g.textAlign='center';
+  g.shadowColor='rgba(255,215,0,0.4)';g.shadowBlur=12;
+  g.fillText('\u25c9 THE BURROW',W/2,26);
+  g.shadowBlur=0;
+  g.fillStyle=TX.dim;g.font='9px system-ui,-apple-system,sans-serif';
+  g.fillText('Upgrade your SCUTE between runs',W/2,40);
+
+  // Coin display
+  g.fillStyle='#ffd700';g.font='bold 13px system-ui,-apple-system,sans-serif';g.textAlign='left';
+  g.fillText('\u25c9 '+save.coins.toLocaleString(),14,26);
+  g.fillStyle='#8a7000';g.font='8px system-ui,-apple-system,sans-serif';
+  g.fillText('COINS',14,38);
+
+  // Back button
+  const backW=80,backH=22;
+  g.fillStyle='#0a0a18';g.fillRect(W-backW-10,8,backW,backH);
+  g.strokeStyle='#2a2458';g.lineWidth=0.8;g.strokeRect(W-backW-10,8,backW,backH);
+  g.fillStyle=TX.dim;g.font='bold 9px system-ui,-apple-system,sans-serif';g.textAlign='center';
+  g.fillText('\u25c4 BACK',W-backW-10+backW/2,22);
+  mkbtn(W-backW-10,8,backW,backH,()=>{gs='title';music.play('title');});
+
+  // ── ARMADILLO IDLE ──
+  const dilloCX=W/2, dilloCY=100;
+  drawArmadilloIdle(dilloCX,dilloCY,42,t,burrowCosmetic);
+  // Character name
+  const charName=save.characterName||'UNNAMED';
+  g.fillStyle=C1;g.font='bold 11px system-ui,-apple-system,sans-serif';g.textAlign='center';
+  g.fillText(charName,dilloCX,dilloCY+56);
+  g.fillStyle=TX.faint;g.font='8px system-ui,-apple-system,sans-serif';
+  g.fillText('SCUTE CLASS TRAVERSAL ENTITY',dilloCX,dilloCY+68);
+
+  // ── TABS ──
+  const tabY=150,tabH=24;
+  [['UPGRADES',0],['COSMETICS',1]].forEach(([lbl,idx])=>{
+    const tw=120,tx2=W/2-120+idx*124;
+    const on=burrowTab===idx;
+    g.fillStyle=on?'#12122a':'#080810';g.fillRect(tx2,tabY,tw,tabH);
+    g.strokeStyle=on?'#ffd700':'#2a2458';g.lineWidth=on?1.5:0.5;g.strokeRect(tx2,tabY,tw,tabH);
+    g.fillStyle=on?'#ffd700':TX.dim;g.font='bold 10px system-ui,-apple-system,sans-serif';g.textAlign='center';
+    g.fillText(lbl,tx2+tw/2,tabY+16);
+    mkbtn(tx2,tabY,tw,tabH,()=>{burrowTab=idx;});
+  });
+
+  const contentY=tabY+tabH+8;
+  const contentH=H-contentY-8;
+
+  if(burrowTab===0){
+    // ── UPGRADES TAB ──
+    const colW=(W-32)/4;
+    UPGRADES.forEach((upg,ui)=>{
+      const curTier=burrowUpgrades[upg.key]||1;
+      const ux=16+ui*colW,uw=colW-8;
+
+      // Column bg
+      g.fillStyle='#080812';g.fillRect(ux,contentY,uw,contentH);
+      g.strokeStyle=upg.col+'44';g.lineWidth=0.8;g.strokeRect(ux,contentY,uw,contentH);
+
+      // Header
+      g.fillStyle=upg.col;g.font='bold 10px system-ui,-apple-system,sans-serif';g.textAlign='center';
+      g.fillText(upg.label,ux+uw/2,contentY+14);
+      g.fillStyle=TX.faint;g.font='7px system-ui,-apple-system,sans-serif';
+      g.fillText(upg.desc,ux+uw/2,contentY+24);
+
+      // Tier rows
+      const tierH=(contentH-36)/4;
+      upg.tiers.forEach((tierDesc,ti)=>{
+        const tier=ti+1;
+        const ty2=contentY+34+ti*tierH;
+        const owned=tier<=curTier;
+        const isNext=tier===curTier+1;
+        const canAfford=save.coins>=(upg.costs[ti]||0);
+
+        // Tier bg
+        g.fillStyle=owned?`rgba(${hexRGB(upg.col)},0.08)`:'#050508';
+        g.fillRect(ux+4,ty2,uw-8,tierH-3);
+
+        // Tier number badge
+        g.fillStyle=owned?upg.col:'#2a2a3a';
+        g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
+        g.fillText('T'+tier,ux+14,ty2+13);
+
+        // Tier description
+        g.fillStyle=owned?TX.body:TX.faint;
+        g.font='7.5px system-ui,-apple-system,sans-serif';g.textAlign='left';
+        // Wrap desc to fit column
+        const maxW=uw-32;
+        const words=tierDesc.split(' ');let row='';let ry=ty2+10;
+        words.forEach(w=>{
+          const test=row?row+' '+w:w;
+          if(g.measureText(test).width>maxW&&row){g.fillText(row,ux+22,ry);row=w;ry+=9;}
+          else row=test;
+        });
+        if(row)g.fillText(row,ux+22,ry);
+
+        // Owned checkmark
+        if(owned&&tier<curTier){
+          g.fillStyle=upg.col;g.font='8px system-ui,-apple-system,sans-serif';g.textAlign='right';
+          g.fillText('\u2713',ux+uw-6,ty2+13);
+        }
+
+        // Buy button for next tier
+        if(isNext&&curTier<4){
+          const cost=upg.costs[ti]||0;
+          const bw2=uw-16,bh2=16,bx2=ux+8,by2=ty2+tierH-22;
+          g.fillStyle=canAfford?'#0a1a0a':'#100808';g.fillRect(bx2,by2,bw2,bh2);
+          g.strokeStyle=canAfford?upg.col:'#3a1010';g.lineWidth=1;g.strokeRect(bx2,by2,bw2,bh2);
+          g.fillStyle=canAfford?upg.col:TX.bad;g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='center';
+          g.fillText(canAfford?'\u25c9 '+cost+' UPGRADE':'Need '+cost,bx2+bw2/2,by2+11);
+          if(canAfford){
+            mkbtn(bx2,by2,bw2,bh2,()=>{
+              save.coins-=cost;
+              burrowUpgrades[upg.key]=tier;
+              if(!save.upgrades)save.upgrades={};
+              save.upgrades[upg.key]=tier;
+              persist();
+            });
+          }
+        }
+
+        // Current tier indicator
+        if(tier===curTier){
+          g.strokeStyle=upg.col;g.lineWidth=1.5;
+          g.strokeRect(ux+4,ty2,uw-8,tierH-3);
+          g.fillStyle=upg.col;g.font='bold 6px system-ui,-apple-system,sans-serif';g.textAlign='right';
+          g.fillText('ACTIVE',ux+uw-6,ty2+13);
+        }
+
+        // Max
+        if(curTier>=4&&ti===3){
+          g.fillStyle='#ffd700';g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='center';
+          g.fillText('\u2605 MAXED',ux+uw/2,ty2+tierH-8);
+        }
+      });
+    });
+
+  } else {
+    // ── COSMETICS TAB ──
+    const cosmPerRow=3;
+    const cw=(W-48)/cosmPerRow,ch=90;
+    const totalRaidClear=raidCompleted.filter(Boolean).length;
+    const totalStars=campaignStars.reduce((s,n)=>s+n,0);
+
+    COSMETICS.forEach((cos,ci)=>{
+      const row=Math.floor(ci/cosmPerRow),col2=ci%cosmPerRow;
+      const cx2=16+col2*cw,cy2=contentY+row*(ch+8);
+      const owned=cos.cost===0||save.coins>=cos.cost;
+      const equipped=burrowCosmetic===cos.key;
+      const reqMet=!cos.req||(cos.req==='raid'&&totalRaidClear>0)||(cos.req==='stars'&&totalStars>=24);
+
+      g.fillStyle=equipped?'#101028':'#08080f';g.fillRect(cx2,cy2,cw-8,ch);
+      g.strokeStyle=equipped?cos.col:'#1a1a30';g.lineWidth=equipped?1.8:0.6;g.strokeRect(cx2,cy2,cw-8,ch);
+
+      // Preview armadillo
+      drawArmadilloIdle(cx2+(cw-8)/2,cy2+32,22,t+ci*0.7,cos.key);
+
+      // Label
+      g.fillStyle=equipped?cos.col:TX.dim;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
+      g.fillText(cos.label,cx2+(cw-8)/2,cy2+58);
+
+      if(!reqMet){
+        g.fillStyle=TX.bad;g.font='7px system-ui,-apple-system,sans-serif';
+        g.fillText(cos.req==='raid'?'Clear a raid first':'24 ★ required',cx2+(cw-8)/2,cy2+70);
+      } else if(equipped){
+        g.fillStyle='#ffd700';g.font='bold 7px system-ui,-apple-system,sans-serif';
+        g.fillText('EQUIPPED',cx2+(cw-8)/2,cy2+70);
+      } else {
+        const canBuy=save.coins>=cos.cost;
+        g.fillStyle=canBuy?TX.warn:TX.bad;g.font='7px system-ui,-apple-system,sans-serif';
+        g.fillText(cos.cost===0?'FREE':'\u25c9 '+cos.cost,cx2+(cw-8)/2,cy2+70);
+        if(reqMet){
+          mkbtn(cx2,cy2,cw-8,ch,()=>{
+            if(cos.cost>0&&save.coins<cos.cost)return;
+            if(cos.cost>0)save.coins-=cos.cost;
+            burrowCosmetic=cos.key;
+            if(!save.cosmetic)save.cosmetic=cos.key;
+            save.cosmetic=cos.key;
+            persist();
+          });
+        }
+      }
+
+    });
+  }
 }
 
 // ── NAMING SCREEN ──────────────────────────────────────────────────────────────
@@ -3337,98 +3622,84 @@ function drawraidselect(){
     g.fillStyle=unlk?rd.bossGlow:'#2a2440';g.font='bold 7px monospace';g.textAlign='center';
     g.fillText(rd.bossW+'×'+rd.bossH,mgx+rd.bossW*csz/2,mgy+rd.bossH*csz+10);
 
-    // ── Text content — dynamically fills card height ──
+    // ── Text content — compact layout for 91px cards ──
     const tx=bx+18;
-    const contentH=bh-42; // reserve 42px bottom for buttons/stats
-    const nameH=16,titleH=12,loreH=11,abilityH=Math.max(11,Math.floor((contentH-nameH-titleH-loreH-6)/rd.abilities.length));
+    const stripH=26; // bottom button strip height
+    const stripY=by+bh-stripH;
 
-    // Name
+    // Row 1: Number + Name (bold, glow)
     g.fillStyle=unlk?rd.bossGlow:TX.faint;
-    g.font='bold 13px system-ui,-apple-system,sans-serif';g.textAlign='left';
-    g.fillText((i+1)+'. '+rd.name,tx,by+nameH);
+    g.font='bold 12px system-ui,-apple-system,sans-serif';g.textAlign='left';
+    g.fillText((i+1)+'. '+rd.name,tx,by+14);
 
-    // Title (italic)
+    // Row 1b: Title + lore — same line, italic title, dim lore after dash
     g.fillStyle=unlk?TX.dim:TX.faint;
-    g.font='italic 10px system-ui,-apple-system,sans-serif';
-    g.fillText(rd.title,tx,by+nameH+titleH);
+    g.font='italic 8px system-ui,-apple-system,sans-serif';
+    const loreAvailW=bw-40-(rd.bossW*csz+20);
+    const titleStr=rd.title+' — '+rd.lore;
+    // Truncate to fit
+    let titleDisp=titleStr;
+    while(titleDisp.length>4&&g.measureText(titleDisp).width>loreAvailW)titleDisp=titleDisp.slice(0,-4)+'…';
+    g.fillText(titleDisp,tx,by+25);
 
-    // Lore
-    g.fillStyle=unlk?TX.body:TX.faint;
-    g.font='10px system-ui,-apple-system,sans-serif';
-    // Word-wrap lore into available width
-    const loreMaxW=bw-40-(rd.bossW*csz+20);
-    let loreY=by+nameH+titleH+loreH;
-    const loreWords=rd.lore.split(' ');
-    let loreLine='';
-    loreWords.forEach(w=>{
-      const test=loreLine?loreLine+' '+w:w;
-      if(g.measureText(test).width>loreMaxW&&loreLine){
-        g.fillText(loreLine,tx,loreY);loreLine=w;loreY+=11;
-      } else loreLine=test;
-    });
-    if(loreLine)g.fillText(loreLine,tx,loreY);
-
-    // Abilities — flow below lore, stop before bottom strip
-    const abilityStartY=by+nameH+titleH+loreH+20;
-    rd.abilities.forEach((ab,ai)=>{
-      const ay=abilityStartY+ai*abilityH;
-      if(ay>by+bh-46)return; // clip if overflowing into button strip
+    // Rows 2+: Abilities — compact, one per line, name+desc inline
+    const abilityLineH=12;
+    const abilityZoneH=stripY-(by+30)-2;
+    const maxAbils=Math.floor(abilityZoneH/abilityLineH);
+    rd.abilities.slice(0,maxAbils).forEach((ab,ai)=>{
+      const ay=by+30+ai*abilityLineH+10;
       g.fillStyle=unlk?rd.bossGlow:TX.faint;
-      g.font='bold 9px system-ui,-apple-system,sans-serif';g.textAlign='left';
-      g.fillText('\u25b6 '+ab,tx,ay);
-      if(ay+10<by+bh-46){
-        g.fillStyle=unlk?TX.dim:TX.faint;
-        g.font='9px system-ui,-apple-system,sans-serif';
-        g.fillText(rd.abilityDescs[ai],tx+80,ay);
-      }
+      g.font='bold 7.5px system-ui,-apple-system,sans-serif';g.textAlign='left';
+      g.fillText('▶',tx,ay);
+      g.fillStyle=unlk?'#c0d8f0':TX.faint;
+      g.font='7.5px system-ui,-apple-system,sans-serif';
+      // Name + desc on same line, truncated
+      const abLine=ab+' — '+rd.abilityDescs[ai];
+      const maxW=bw-tx-50-(rd.bossW*csz+20);
+      let abDisp=abLine;
+      while(abDisp.length>4&&g.measureText(abDisp).width>maxW)abDisp=abDisp.slice(0,-4)+'…';
+      g.fillText(abDisp,tx+10,ay);
     });
 
-    // ── Bottom strip: stats + buttons ──
-    const stripY=by+bh-38;
     // Separator
-    g.strokeStyle=`rgba(${hexRGB(rd.bossCol)},0.2)`;g.lineWidth=0.5;
-    g.beginPath();g.moveTo(bx+8,stripY);g.lineTo(bx+bw-8,stripY);g.stroke();
-
-    // Stats
-    g.fillStyle=TX.faint;g.font='7px monospace';g.textAlign='left';
-    g.fillText('Boss '+rd.bossW+'×'+rd.bossH+' · Move '+rd.moveInterval.toFixed(1)+'s · Attract '+rd.attractMin+'–'+rd.attractMax+' · Wipe at '+(rd.devourLimit*100|0)+'%',tx,stripY+10);
+    g.strokeStyle=`rgba(${hexRGB(rd.bossCol)},0.25)`;g.lineWidth=0.5;
+    g.beginPath();g.moveTo(bx+6,stripY);g.lineTo(bx+bw-6,stripY);g.stroke();
 
     if(done){
-      g.fillStyle=TX.good;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='right';
-      g.fillText('✓ COMPLETED',bx+bw-10,by+16);
+      g.fillStyle=TX.good;g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='right';
+      g.fillText('✓ COMPLETED',bx+bw-10,by+14);
     }
 
     if(unlk){
-      // Solo/Duo buttons
+      // Solo/Duo toggle — compact
       const soloOn=gameMode==='solo';
-      [[soloOn,'SOLO',true],[!soloOn,'DUO (2P)',false]].forEach(([on,lbl,setSolo],bi)=>{
-        const mbx=tx+bi*76,mby=stripY+14,mbw=70,mbh=18;
+      [[soloOn,'SOLO',true],[!soloOn,'DUO',false]].forEach(([on,lbl,setSolo],bi)=>{
+        const mbx=tx+bi*50,mby=stripY+4,mbw=44,mbh=18;
         g.fillStyle=on?'#0e1e2a':'#080812';g.fillRect(mbx,mby,mbw,mbh);
         g.strokeStyle=on?rd.bossCol:'#2a2440';g.lineWidth=on?1.2:0.5;g.strokeRect(mbx,mby,mbw,mbh);
         g.fillStyle=on?rd.bossGlow:TX.dim;g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='center';
         g.fillText(lbl,mbx+mbw/2,mby+12);
         mkbtn(mbx,mby,mbw,mbh,()=>{gameMode=setSolo?'solo':'2p';});
       });
-      // Difficulty info
+      // Difficulty badge
       const SMAP={NORMAL:1.0,HEROIC:0.82,MYTHIC:0.65,LEGENDARY:0.50};
-      const DMAP={NORMAL:1.0,HEROIC:1.25,MYTHIC:1.55,LEGENDARY:2.0};
       const WIN_MAP={NORMAL:68,HEROIC:74,MYTHIC:80,LEGENDARY:86};
-      const sm2=SMAP[difficulty]||1,dm=DMAP[difficulty]||1;
-      g.fillStyle=difficulty==='NORMAL'?TX.dim:difficulty==='HEROIC'?'#4a9eff':difficulty==='MYTHIC'?'#cc44ff':'#ef9f27';
-      g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='left';
-      g.fillText(difficulty+': move '+(rd.moveInterval*sm2).toFixed(1)+'s · dmg '+(dm===1?'1×':dm+'×')+' · need '+WIN_MAP[difficulty]+'%',tx+160,stripY+24);
+      const sm2=SMAP[difficulty]||1;
+      const diffCol=difficulty==='NORMAL'?TX.dim:difficulty==='HEROIC'?'#4a9eff':difficulty==='MYTHIC'?'#cc44ff':'#ef9f27';
+      g.fillStyle=diffCol;g.font='7px system-ui,-apple-system,sans-serif';g.textAlign='left';
+      g.fillText(difficulty+' · '+WIN_MAP[difficulty]+'% cover · move '+(rd.moveInterval*sm2).toFixed(1)+'s',tx+104,stripY+13);
       // Enter Raid button
-      const ebx=bx+bw-168,eby=stripY+12,ebw=156,ebh=22;
+      const ebx=bx+bw-160,eby=stripY+3,ebw=152,ebh=20;
       g.fillStyle='#120820';g.fillRect(ebx,eby,ebw,ebh);
-      g.strokeStyle=rd.bossCol;g.lineWidth=1.5;g.strokeRect(ebx,eby,ebw,ebh);
-      g.shadowColor=rd.bossGlow;g.shadowBlur=6;
-      g.fillStyle=rd.bossGlow;g.font='bold 9px system-ui,-apple-system,sans-serif';g.textAlign='center';
-      g.fillText('⚔ ENTER RAID — '+rd.name,ebx+ebw/2,eby+14);
+      g.strokeStyle=rd.bossCol;g.lineWidth=1.4;g.strokeRect(ebx,eby,ebw,ebh);
+      g.shadowColor=rd.bossGlow;g.shadowBlur=5;
+      g.fillStyle=rd.bossGlow;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
+      g.fillText('⚔ ENTER RAID — '+rd.name,ebx+ebw/2,eby+13);
       g.shadowBlur=0;
       mkbtn(ebx,eby,ebw,ebh,()=>{initRaid(i);});
     } else {
       g.fillStyle=TX.faint;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
-      g.fillText(i===0?'[LOCKED — COMPLETE PREVIOUS RAID]':'[LOCKED — COMPLETE RAID '+i+' FIRST]',bx+bw/2,by+bh/2+4);
+      g.fillText(i===0?'LOCKED — COMPLETE PREVIOUS RAID':'LOCKED — COMPLETE RAID '+i+' FIRST',bx+bw/2,by+bh/2+4);
     }
   });
 }
@@ -4042,6 +4313,10 @@ document.addEventListener('keydown',e=>{
     if(e.key===' '||e.key==='Enter'){if(gameMode==='campaign'){gs='levelselect';music.play('levelselect');}else startFreeplay();}
     return;
   }
+  if(gs==='burrow'){
+    if(e.key==='Escape'){gs='title';music.play('title');}
+    return;
+  }
   if(gs==='levelselect'){
     if(e.key==='Escape'){gs='title';music.play('title');}
     return;
@@ -4099,6 +4374,7 @@ const BORDER_PALETTES={
   levelselect:[[26,106,204],[91,200,245],[167,130,255]],
   raidselect:[[153,34,204],[221,102,255],[80,0,120]],
   brief:    [[180,120,0],[255,215,0],[180,120,0]],
+  burrow:   [[100,80,0],[255,215,0],[80,60,0]],
   genesis:  [[91,200,245],[74,222,128],[91,200,245]],
   labyrinth:[[34,212,90],[10,140,60],[34,212,90]],
   deep:     [[154,96,255],[80,30,180],[154,96,255]],
@@ -4118,6 +4394,7 @@ const BORDER_PALETTES={
 
 function getBorderPalette(){
   if(gs==='brief')return BORDER_PALETTES.brief;
+  if(gs==='burrow')return BORDER_PALETTES.burrow;
   if(gs==='title')return BORDER_PALETTES.title;
   if(gs==='levelselect')return BORDER_PALETTES.levelselect;
   if(gs==='raidselect')return BORDER_PALETTES.raidselect;
