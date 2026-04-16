@@ -414,7 +414,7 @@ const blend=(h1,h2,t)=>{
 
 // ── SAVE DATA ─────────────────────────────────────────────────────────────────
 const SAVE_KEY='dgth_v3_save';
-const DEFAULT_SAVE={coins:0,campaignStars:[0,0,0,0,0,0,0,0],raidCompleted:[false,false,false,false,false,false],difficulty:'NORMAL',totalRuns:0,characterName:'',devUnlocked:false,upgrades:{shell:1,legs:1,senses:1,core:1},cosmetic:'default',purchasedCosmetics:['default'],inventory:[],equipped:{helm:null,armor:null,boots:null,trinket:null},invStackLimit:5};
+const DEFAULT_SAVE={coins:0,campaignStars:[0,0,0,0,0,0,0,0],raidCompleted:[false,false,false,false,false,false],difficulty:'NORMAL',totalRuns:0,characterName:'',devUnlocked:false,upgrades:{shell:1,legs:1,senses:1,core:1},cosmetic:'default',purchasedCosmetics:['default'],inventory:[],equipped:{helm:null,armor:null,boots:null,trinket:null},invStackLimit:5,persona:'scute',unlockedPersonas:['scute'],totalCombines:0};
 let save={...DEFAULT_SAVE};
 let runCoins=0; // coins earned this run, banked at end
 
@@ -1328,10 +1328,10 @@ function startJanitorMode(){
   voidPulseTimer=999;eventFired=false;eventFlash=0;
   p1=mkw(Math.floor(COLS*0.2),Math.floor(ROWS/2),1);
   p2=mkw(-99,-99,3);
-  gt=99999;
+  gt=60;
   sm='';smt=0;lockMsg='';lockMsgT=0;
-  powerups=[];pupTimer=20;pupMsg='';pupMsgT=0;
-  boardItems=[];itemDropTimer=60;elimPending=false;elimTimer=0;
+  powerups=[];pupTimer=8;pupMsg='';pupMsgT=0;
+  boardItems=[];itemDropTimer=15;elimPending=false;elimTimer=0;
   // Janitor: 4×4 block, starts top-left, boustrophedon sweep
   const BS=4; // block size
   janitor={
@@ -1348,7 +1348,7 @@ function startJanitorMode(){
   particles=[];scorePopups=[];shakeMag=0;vigA=0;winParticlesInit=false;
   runCoins=0;activeGameMode='janitor';
   music.play('title');
-  document.getElementById('hint').textContent='⛧ COSMIC JANITOR — collect endlessly. He cleans. You recollect.';
+  document.getElementById('hint').textContent='⛧ COSMIC JANITOR — 60 seconds. Reclaim as much as you can.';
 }
 
 // ── JANITOR UPDATE ────────────────────────────────────────────────────────────
@@ -1503,34 +1503,43 @@ function calcStars(){
 }
 
 function endgame(){
-  if(gs==='end')return; // guard against double-call
+  if(gs==='end')return;
   elimPending=false;
   const soloLike=gameMode==='solo';
+  const isJanitor=gameMode==='janitor';
   const lbl=gameMode==='2p'?'P2':'AI';
   let winner,reason='';
-  if(soloLike){er='SCORE: '+p1.score.toLocaleString()+' \xb7 COV: '+Math.round(p1.vis.size/(COLS*ROWS)*100)+'%';}
-  else{
+  const p1cov=Math.round(p1.vis.size/(COLS*ROWS)*100);
+
+  if(isJanitor){
+    er='⛧ COSMIC JANITOR \xb7 '+p1cov+'% RECLAIMED \xb7 '+p1.score.toLocaleString()+' pts';
+  } else if(soloLike){
+    er='SCORE: '+p1.score.toLocaleString()+' \xb7 COV: '+p1cov+'%';
+  } else {
     if(p1.fcc>=3&&p2.fcc<3){winner='C2';reason=' \xb7 C1 ELIMINATED';}
     else if(p2.fcc>=3&&p1.fcc<3){winner='C1';reason=' \xb7 C2 '+lbl.toUpperCase()+' ELIMINATED';}
     else winner=p1.score>=p2.score?'C1':'C2';
     er=winner+' WINS'+reason+' \xb7 C1: '+p1.score.toLocaleString()+' \xb7 C2 '+lbl+': '+p2.score.toLocaleString();
   }
+
   // ── COIN BONUSES at match end ──
   const p1wins=soloLike||(winner==='C1');
-  const p1cov=Math.round(p1.vis.size/(COLS*ROWS)*100);
   const perfBonuses=[];
 
-  if(p1wins)addCoins(25); // base win bonus
-
-  // Zero capture bonus — didn't get captured once
-  if(p1.fcc===0&&!soloLike&&gs!=='janitor'){addCoins(40);perfBonuses.push({lbl:'PERFECT — NO CAPTURES',c:40});}
-
-  // High coverage bonus
-  if(p1cov>=90){addCoins(60);perfBonuses.push({lbl:'DOMINANT — 90%+ COVERAGE',c:60});}
-  else if(p1cov>=75){addCoins(25);perfBonuses.push({lbl:'SOLID — 75%+ COVERAGE',c:25});}
-
-  // AI eliminated bonus
-  if(p2.fcc>=3&&!soloLike){addCoins(75);perfBonuses.push({lbl:'TERMINATOR — ECHO-7 ELIMINATED',c:75});}
+  if(isJanitor){
+    // Tiered coverage bonuses — the core reward loop
+    if(p1cov>=95){addCoins(5000);perfBonuses.push({lbl:'PRISTINE — 95%+ RECLAIMED',c:5000});}
+    else if(p1cov>=80){addCoins(2000);perfBonuses.push({lbl:'IMMACULATE — 80%+ RECLAIMED',c:2000});}
+    else if(p1cov>=65){addCoins(800);perfBonuses.push({lbl:'THOROUGH — 65%+ RECLAIMED',c:800});}
+    else if(p1cov>=50){addCoins(300);perfBonuses.push({lbl:'SOLID — 50%+ RECLAIMED',c:300});}
+    else if(p1cov>=25){addCoins(80);perfBonuses.push({lbl:'PARTIAL — 25%+ RECLAIMED',c:80});}
+  } else {
+    if(p1wins)addCoins(25);
+    if(p1.fcc===0&&!soloLike){addCoins(40);perfBonuses.push({lbl:'PERFECT — NO CAPTURES',c:40});}
+    if(p1cov>=90){addCoins(60);perfBonuses.push({lbl:'DOMINANT — 90%+ COVERAGE',c:60});}
+    else if(p1cov>=75){addCoins(25);perfBonuses.push({lbl:'SOLID — 75%+ COVERAGE',c:25});}
+    if(p2.fcc>=3&&!soloLike){addCoins(75);perfBonuses.push({lbl:'TERMINATOR — ECHO-7 ELIMINATED',c:75});}
+  }
 
   // Campaign bonuses
   if(gameMode==='campaign'){
@@ -1541,20 +1550,17 @@ function endgame(){
     else if(stars===2){addCoins(20);perfBonuses.push({lbl:'★★ CAMPAIGN CLEAR',c:20});}
   }
 
-  // Store for display on end screen
   window._lastPerfBonuses=perfBonuses;
-
-  // Bank run coins into save
   save.coins=(save.coins||0)+runCoins;
   save.totalRuns=(save.totalRuns||0)+1;
-  // ── ITEM DROPS ──
-  const dropSrc=raidMode?(currentRaid&&currentRaid.id>=4?'boss':'raid'):gameMode==='campaign'?'campaign':'normal';
+
+  // ── ITEM DROPS — Janitor uses boss table (substantially better) ──
+  const dropSrc=isJanitor?'boss':raidMode?(currentRaid&&currentRaid.id>=4?'boss':'raid'):gameMode==='campaign'?'campaign':'normal';
   lastDrops=rollDrops(dropSrc);
   lastDrops.forEach(item=>addToInventory(item));
   persist();
   gs='end';
   music.stop();
-  // item drops already rolled via rollDrops() above
 }
 
 // ── UPDATE ────────────────────────────────────────────────────────────────────
@@ -1586,7 +1592,7 @@ function update(now){
   if(smt>0)smt-=dt;if(lockMsgT>0)lockMsgT-=dt;if(pupMsgT>0)pupMsgT-=dt;
   if(eventFlash>0)eventFlash=Math.max(0,eventFlash-dt*2);
   if(elimPending){elimTimer-=dt;if(elimTimer<=0){elimPending=false;endgame();return;}}
-  if(!raidMode&&gameMode!=='janitor'&&gt<=0){gt=0;endgame();return;}
+  if(!raidMode&&gt<=0){gt=0;endgame();return;}
   if(!raidMode||p1.hp>0)updw(p1,false,dt);
   if(raidMode){
     if(gameMode!=='solo'&&p2.hp>0)updw(p2,false,dt);
@@ -2096,16 +2102,17 @@ function drawSensesOverlay(){
 // ── PIXEL ARMADILLO RENDERER — Minecraft armadillo style ──────────────────────
 // Shell = tall rectangle with vertical stripes. Small blocky head. Pink snout.
 // Stubby square legs at corners. Canonical facing: LEFT (-X = forward).
-function drawPixelArmadillo(cx,cy,P,dir,t,shellCol,bodyCol,isP1,wRef,cosKey){
+function drawPixelArmadillo(cx,cy,P,dir,t,shellCol,bodyCol,isP1,wRef,cosKey,personaKey){
+  const persona=PERSONAS.find(p=>p.key===personaKey)||PERSONAS[0];
   const sBase=shellCol;
   const sTop=blend(sBase,'#ffffff',0.32);
   const sDark=blend(sBase,'#000000',0.40);
   const sMid=blend(sBase,'#000000',0.18);
   const sStripe=blend(sBase,'#000000',0.52);
-  const skinBase='#d4a4b0';
-  const skinDark='#a07080';
-  const snoutCol='#f0b8c0';
-  const eyeCol='#1a1230';
+  const skinBase=persona.skin;
+  const skinDark=blend(persona.skin,'#000000',0.28);
+  const snoutCol=persona.snout;
+  const eyeCol=persona.eyeCol;
   const legCol=blend(skinBase,'#000000',0.15);
 
   const R=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect(x*P,y*P,w*P,h*P);};
@@ -2115,48 +2122,113 @@ function drawPixelArmadillo(cx,cy,P,dir,t,shellCol,bodyCol,isP1,wRef,cosKey){
   else if(dir===0){g.rotate(Math.PI*0.5);}
   else if(dir===2){g.rotate(Math.PI*1.5);}
 
-  // Layout constants — shell is the anchor, everything else relative to it
-  // Shell: x[-5.5 → 10.5] (width=16), y[-6 → 4.5] (height=10.5)
-  const SL=-5.5, SW=16, SR=SL+SW; // shell left, width, right
-  const ST=-6,   SH=10.5, SB=ST+SH; // shell top, height, bottom
+  const SL=-5.5, SW=16, SR=SL+SW;
+  const ST=-6,   SH=10.5, SB=ST+SH;
 
-  // ── TAIL — sticks right of shell ──
-  R(SR,    -1,   2.5, 1.5, skinDark);
-  R(SR+2,  -0.5, 1.5, 0.8, skinBase);
+  // ── TAIL — persona variant ──
+  if(persona.tail==='worn'){
+    R(SR,-0.8,1.8,1.2,skinDark);R(SR+1.5,-0.3,1,0.7,skinBase);
+  } else if(persona.tail==='wispy'){
+    g.globalAlpha=0.7+Math.sin(t*2)*0.15;
+    R(SR,-1,2.5,1.5,blend(skinBase,'#aaddff',0.5));
+    g.globalAlpha=0.4;R(SR+2.5,-0.5,1.5,0.8,'#aaddff');
+    g.globalAlpha=1;
+  } else if(persona.tail==='stub'){
+    R(SR,-0.5,1.2,1,skinDark);
+  } else if(persona.tail==='flame'){
+    const fp=(Math.sin(t*4)+1)*0.5;
+    g.globalAlpha=0.9;R(SR,-1,2.5,1.5,blend('#ff6600','#ff9900',fp));
+    g.globalAlpha=0.6;R(SR+2,-1.5,1.2,2,'#ffcc00');
+    g.globalAlpha=1;
+  } else if(persona.tail==='tendril'){
+    const tw=Math.sin(t*2.5)*0.8;
+    R(SR,-1+tw,2,1.5,'#8844aa');R(SR+1.8,-0.5+tw,1.2,0.8,'#cc44ff');
+    g.fillStyle='rgba(180,0,255,0.4)';
+    g.beginPath();g.arc((SR+3)*P,(-0.5+tw)*P,P*0.6,0,Math.PI*2);g.fill();
+  } else if(persona.tail==='glitch'){
+    const gf=Math.floor(t*8)%3;
+    R(SR,-1,2.5,1.5,gf===0?'#44cc88':gf===1?'#ff00ff':'#00ffff');
+  } else {
+    R(SR,-1,2.5,1.5,skinDark);R(SR+2,-0.5,1.5,0.8,skinBase);
+  }
 
-  // ── LEGS — all 4 fully within shell x-range, tops hidden under shell bottom ──
+  // ── LEGS — persona variant ──
   const lp=t*(isP1===null?1.2:8);
   const la=(ph)=>Math.sin(lp+ph)*0.7;
-  // Evenly distributed across shell: SL=-5.5, SR=10.5, legW=2.0
-  // 4 legs × 2.0 = 8.0, remaining 8.0 spread as 5 equal gaps of 1.6 each
   const legW=2.0;
   const legTopY=SB-1.2;
-  const leg=(x,ph)=>{
-    const yo=la(ph);
-    R(x, legTopY+yo,   legW, 4.0, legCol);              // leg shaft
-    R(x-0.3, legTopY+yo+3.2, legW+0.6, 1.2, skinDark); // foot
-  };
-  leg(-3.9,  0);          // front-left  (phase 0)
-  leg(-0.3,  Math.PI);    // front-right (phase π)
-  leg( 3.3,  0);          // back-left   (phase 0 — same as front-left)
-  leg( 6.9,  Math.PI);    // back-right  (phase π — same as front-right)
 
-  // ── SHELL — cartoonishly large rectangle, drawn OVER legs ──
-  R(SL,    SB,   SW,  1.2, sDark);         // bottom shadow strip
-  R(SL,    ST,   SW,  SH,  sBase);         // main shell body
-  R(SL,    ST,   SW,  1.5, sTop);          // top highlight row
-  R(SL,    ST+1.5,SW, 0.8, blend(sTop,'#ffffff',0.08)); // second highlight
-  // 5 vertical dark stripes evenly spaced inside shell
+  if(persona.feet==='mechanical'){
+    const mleg=(x,ph)=>{
+      const yo=la(ph)*0.4;
+      R(x,legTopY+yo,legW,3.5,'#667788');
+      R(x-0.3,legTopY+yo+3,legW+0.6,1.5,'#445566');
+      R(x+0.2,legTopY+yo+3.2,legW*0.3,0.8,'#88aacc');
+    };
+    mleg(-3.9,0);mleg(-0.3,Math.PI);mleg(3.3,0);mleg(6.9,Math.PI);
+  } else if(persona.feet==='ghostly'){
+    g.globalAlpha=0.65;
+    const gleg=(x,ph)=>{
+      const yo=la(ph)*0.6-0.5;
+      R(x,legTopY+yo,legW,4,blend(skinBase,'#aaddff',0.5));
+      R(x-0.3,legTopY+yo+3.2,legW+0.6,1.2,'#aaddff');
+    };
+    gleg(-3.9,0);gleg(-0.3,Math.PI);gleg(3.3,0);gleg(6.9,Math.PI);
+    g.globalAlpha=1;
+  } else if(persona.feet==='heavy'){
+    const hleg=(x,ph)=>{
+      const yo=la(ph)*0.5;
+      R(x-0.3,legTopY+yo,legW+0.6,4,skinDark);
+      R(x-0.6,legTopY+yo+3.2,legW+1.2,1.5,blend(skinDark,'#000000',0.3));
+    };
+    hleg(-3.9,0);hleg(-0.3,Math.PI);hleg(3.3,0);hleg(6.9,Math.PI);
+  } else if(persona.feet==='clawed'){
+    const cleg=(x,ph)=>{
+      const yo=la(ph);
+      R(x,legTopY+yo,legW,4,legCol);
+      R(x-0.3,legTopY+yo+3.2,legW+0.6,1.2,skinDark);
+      R(x-0.6,legTopY+yo+4.2,0.8,0.8,blend(skinDark,'#220000',0.3));
+      R(x+0.6,legTopY+yo+4.2,0.8,0.8,blend(skinDark,'#220000',0.3));
+      R(x+1.8,legTopY+yo+4.2,0.8,0.8,blend(skinDark,'#220000',0.3));
+    };
+    cleg(-3.9,0);cleg(-0.3,Math.PI);cleg(3.3,0);cleg(6.9,Math.PI);
+  } else if(persona.feet==='shadow'){
+    g.globalAlpha=0.8;
+    const sleg=(x,ph)=>{
+      const yo=la(ph);
+      R(x,legTopY+yo,legW,4,'#220033');
+      g.fillStyle='rgba(140,0,255,0.3)';
+      g.fillRect((x-0.5)*P,(legTopY+yo+3)*P,(legW+1)*P,1.5*P);
+    };
+    sleg(-3.9,0);sleg(-0.3,Math.PI);sleg(3.3,0);sleg(6.9,Math.PI);
+    g.globalAlpha=1;
+  } else if(persona.feet==='digital'){
+    const df=Math.floor(t*6)%2;
+    const dleg=(x,ph)=>{
+      const yo=la(ph);
+      R(x,legTopY+yo,legW,4,df===0?blend(skinBase,'#00ff88',0.4):blend(skinBase,'#ff00ff',0.3));
+      R(x-0.3,legTopY+yo+3.2,legW+0.6,1.2,skinDark);
+    };
+    dleg(-3.9,0);dleg(-0.3,Math.PI);dleg(3.3,0);dleg(6.9,Math.PI);
+  } else {
+    const leg=(x,ph)=>{
+      const yo=la(ph);
+      R(x,legTopY+yo,legW,4.0,legCol);
+      R(x-0.3,legTopY+yo+3.2,legW+0.6,1.2,skinDark);
+    };
+    leg(-3.9,0);leg(-0.3,Math.PI);leg(3.3,0);leg(6.9,Math.PI);
+  }
+
+  // ── SHELL ──
+  R(SL,SB,SW,1.2,sDark);
+  R(SL,ST,SW,SH,sBase);
+  R(SL,ST,SW,1.5,sTop);
+  R(SL,ST+1.5,SW,0.8,blend(sTop,'#ffffff',0.08));
   const stripeSpacing=SW/6;
-  [1,2,3,4,5].forEach(n=>R(SL+n*stripeSpacing-0.4, ST, 0.9, SH, sStripe));
-  // Right face dark edge (3D illusion)
-  R(SR-1.5, ST,  1.5, SH,  sDark);
-  // Left face highlight edge
-  R(SL,     ST,  1.2, SH,  sMid);
-  // Bottom edge cover — a solid strip so legs vanish cleanly under shell
-  R(SL, SB-1.5, SW, 1.5, blend(sBase,'#000000',0.25));
-
-  // Shell upgrade glow
+  [1,2,3,4,5].forEach(n=>R(SL+n*stripeSpacing-0.4,ST,0.9,SH,sStripe));
+  R(SR-1.5,ST,1.5,SH,sDark);
+  R(SL,ST,1.2,SH,sMid);
+  R(SL,SB-1.5,SW,1.5,blend(sBase,'#000000',0.25));
   const sTier=typeof burrowUpgrades!=='undefined'?(burrowUpgrades.shell||1):1;
   if(sTier>=3){g.globalAlpha=0.28;R(SL,ST,SW*0.6,0.8,sTop);g.globalAlpha=1;}
   if(sTier>=4){
@@ -2166,30 +2238,95 @@ function drawPixelArmadillo(cx,cy,P,dir,t,shellCol,bodyCol,isP1,wRef,cosKey){
     g.shadowBlur=0;
   }
 
-  // ── HEAD — small blocky, at front-left of shell (tucked against left edge) ──
+  // ── HEAD ──
   const headX=SL-5.5, headY=-2, headW=5.8, headH=5.5;
-  R(headX, headY, headW, headH, skinBase);
-  R(headX, headY, headW, 1.2,  skinDark);  // top shadow
-  // Ear flaps on top
-  R(headX+0.8, headY-2,   2.2, 2.2, skinDark);
-  R(headX+1.2, headY-1.4, 1.2, 1.2, blend(snoutCol,'#cc8888',0.4));
+  R(headX,headY,headW,headH,skinBase);
+  R(headX,headY,headW,1.2,skinDark);
+  R(headX+0.8,headY-2,2.2,2.2,skinDark);
+  R(headX+1.2,headY-1.4,1.2,1.2,blend(snoutCol,'#cc8888',0.4));
 
-  // ── SNOUT — distinct pink block sticking forward from head ──
-  R(headX-3.5, headY+0.5, 4, 3.2, snoutCol);
-  R(headX-4.2, headY+1,   1.2, 2, skinDark);  // nose tip shadow
+  // ── SNOUT ──
+  R(headX-3.5,headY+0.5,4,3.2,snoutCol);
+  R(headX-4.2,headY+1,1.2,2,skinDark);
   g.fillStyle=blend(snoutCol,'#ffffff',0.35);
   g.fillRect((headX-3.2)*P,(headY+0.5)*P,1.2*P,0.9*P);
 
-  // ── EYE ──
+  // ── EYE — persona variant ──
   const blink=Math.sin(t*0.85)>0.93;
-  if(!blink){
-    R(headX+0.8, headY+0.8, 2.2, 2.2, eyeCol);
-    R(headX+0.8, headY+0.8, 1.4, 1.4, '#2a2060');
-    g.fillStyle='rgba(255,255,255,0.9)';
-    g.fillRect((headX+1.1)*P,(headY+0.6)*P,0.7*P,0.7*P);
+  if(persona.eye==='led'){
+    if(!blink){
+      g.fillStyle=eyeCol;g.shadowColor=eyeCol;g.shadowBlur=6;
+      g.beginPath();g.arc((headX+1.9)*P,(headY+1.9)*P,P*1.2,0,Math.PI*2);g.fill();
+      g.fillStyle='rgba(255,255,255,0.8)';
+      g.beginPath();g.arc((headX+1.5)*P,(headY+1.5)*P,P*0.4,0,Math.PI*2);g.fill();
+      g.shadowBlur=0;
+    } else {
+      g.fillStyle=blend(eyeCol,'#000000',0.5);
+      g.beginPath();g.arc((headX+1.9)*P,(headY+1.9)*P,P*0.8,0,Math.PI*2);g.fill();
+    }
+  } else if(persona.eye==='ghost'){
+    if(!blink){
+      g.fillStyle=eyeCol;g.shadowColor=eyeCol;g.shadowBlur=8+Math.sin(t*2)*3;
+      g.beginPath();g.arc((headX+1.9)*P,(headY+1.9)*P,P*1.1,0,Math.PI*2);g.fill();
+      g.fillStyle='rgba(200,230,255,0.9)';
+      g.beginPath();g.arc((headX+1.6)*P,(headY+1.6)*P,P*0.5,0,Math.PI*2);g.fill();
+      g.shadowBlur=0;
+    } else {
+      g.fillStyle=skinDark;
+      g.fillRect((headX+0.4)*P,(headY+1.4)*P,2.5*P,0.6*P);
+    }
+  } else if(persona.eye==='flame'){
+    if(!blink){
+      const fp=(Math.sin(t*4)+1)*0.5;
+      R(headX+0.8,headY+0.8,2.2,2.2,'#331100');
+      g.fillStyle=`rgb(255,${Math.round(100+fp*80)},0)`;
+      g.beginPath();g.arc((headX+1.9)*P,(headY+1.9)*P,P*(0.8+fp*0.3),0,Math.PI*2);g.fill();
+      g.fillStyle='rgba(255,255,100,0.8)';
+      g.beginPath();g.arc((headX+1.7)*P,(headY+1.6)*P,P*0.4,0,Math.PI*2);g.fill();
+    } else {
+      g.fillStyle=skinDark;
+      g.fillRect((headX+0.4)*P,(headY+1.4)*P,2.5*P,0.6*P);
+    }
+  } else if(persona.eye==='void'){
+    // Single large centered eye
+    g.fillStyle='#1a0033';
+    g.beginPath();g.arc((headX+1.9)*P,(headY+2)*P,P*1.6,0,Math.PI*2);g.fill();
+    const vp=(Math.sin(t*3)+1)*0.5;
+    g.fillStyle=eyeCol;g.shadowColor=eyeCol;g.shadowBlur=8+vp*8;
+    g.beginPath();g.arc((headX+1.9)*P,(headY+2)*P,P*(0.7+vp*0.2),0,Math.PI*2);g.fill();
+    g.fillStyle='#000000';g.beginPath();g.arc((headX+1.9)*P,(headY+2)*P,P*0.35,0,Math.PI*2);g.fill();
+    g.shadowBlur=0;
+  } else if(persona.eye==='glitch'){
+    if(!blink){
+      const gf=Math.floor(t*12)%3;
+      R(headX+0.8,headY+0.8,2.2,2.2,gf===0?eyeCol:gf===1?'#00ffff':'#ff00ff');
+      g.fillStyle='rgba(255,255,255,0.9)';
+      g.fillRect((headX+1.1)*P,(headY+0.6)*P,0.7*P,0.7*P);
+    } else {
+      g.fillStyle=skinDark;
+      g.fillRect((headX+0.4)*P,(headY+1.4)*P,2.5*P,0.6*P);
+    }
+  } else if(persona.eye==='worn'){
+    // Half-lidded tired eye
+    if(!blink){
+      R(headX+0.8,headY+1.2,2.2,1.6,eyeCol);
+      R(headX+0.8,headY+0.8,2.2,0.6,skinDark); // drooping lid
+      g.fillStyle='rgba(255,255,255,0.7)';
+      g.fillRect((headX+1.1)*P,(headY+1.2)*P,0.7*P,0.5*P);
+    } else {
+      g.fillStyle=skinDark;
+      g.fillRect((headX+0.4)*P,(headY+1.4)*P,2.5*P,0.6*P);
+    }
   } else {
-    g.fillStyle=skinDark;
-    g.fillRect((headX+0.4)*P,(headY+1.4)*P,2.5*P,0.6*P);
+    if(!blink){
+      R(headX+0.8,headY+0.8,2.2,2.2,eyeCol);
+      R(headX+0.8,headY+0.8,1.4,1.4,'#2a2060');
+      g.fillStyle='rgba(255,255,255,0.9)';
+      g.fillRect((headX+1.1)*P,(headY+0.6)*P,0.7*P,0.7*P);
+    } else {
+      g.fillStyle=skinDark;
+      g.fillRect((headX+0.4)*P,(headY+1.4)*P,2.5*P,0.6*P);
+    }
   }
 
   // ── COSMETIC OVERLAY ──
@@ -2805,7 +2942,8 @@ function drawArmadillo(w,hcol){
   }
 
   const inGameCosKey=isP1?(burrowCosmetic||'default'):'default';
-  drawPixelArmadillo(cx,cy,P,dir,t,shellCol,bodyCol,isP1,w,inGameCosKey);
+  const inGamePersonaKey=isP1?(burrowPersona||'scute'):'scute';
+  drawPixelArmadillo(cx,cy,P,dir,t,shellCol,bodyCol,isP1,w,inGameCosKey,inGamePersonaKey);
 
   // Shield ring
   if(w.shield){
@@ -4244,6 +4382,7 @@ function combineItems(idx){
   if(item.count<=0)save.inventory.splice(idx,1);
   const newItem=makeItem(item.slot,item.subtype,nextTier);
   if(newItem)addToInventory(newItem);
+  save.totalCombines=(save.totalCombines||0)+1;
   persist();
   return newItem;
 }
@@ -4389,12 +4528,56 @@ const COSMETICS=[
   {key:'starfield', label:'STARFIELD',        col:'#0033aa', cost:200000, req:'raid6', desc:'The cosmos inside the shell. All raids required.'},
 ];
 
+// ── PERSONAS ──────────────────────────────────────────────────────────────────
+const PERSONAS=[
+  {key:'scute',    label:'SCUTE',    col:'#5bc8f5', desc:'The original. Standard issue.',
+   skin:'#d4a4b0',snout:'#f0b8c0',eyeCol:'#1a1230',
+   tail:'standard',feet:'standard',eye:'standard',
+   unlock:null,   unlockHint:null},
+  {key:'relic',   label:'RELIC',    col:'#c4a87a', desc:'Ancient plating. Worn but enduring.',
+   skin:'#c4a87a',snout:'#d4b888',eyeCol:'#3a2010',
+   tail:'worn',   feet:'heavy',    eye:'worn',
+   unlock:'quest3',unlockHint:'Unlock in Quest Mode — Zone 3'},
+  {key:'wraith',  label:'WRAITH',   col:'#b0c8e8', desc:'Translucent. Barely here. Dangerous.',
+   skin:'#b0c8e8',snout:'#c8ddf0',eyeCol:'#6688cc',
+   tail:'wispy',  feet:'ghostly',  eye:'ghost',
+   unlock:'quest_artifact',unlockHint:'Find the Void Shard in Quest Mode'},
+  {key:'ironback',label:'IRONBACK', col:'#8899aa', desc:'Reinforced chassis. Built to last.',
+   skin:'#8899aa',snout:'#99aacc',eyeCol:'#00ffcc',
+   tail:'stub',   feet:'mechanical',eye:'led',
+   unlock:'combines10',unlockHint:'Combine 10 items in The Burrow'},
+  {key:'solfire', label:'SOLFIRE',  col:'#e08040', desc:'Forged in the substrate\'s first fire.',
+   skin:'#d4724a',snout:'#e08860',eyeCol:'#ffcc00',
+   tail:'flame',  feet:'clawed',   eye:'flame',
+   unlock:'raids_all',unlockHint:'Clear all 3 original Raids'},
+  {key:'nythari', label:'NYTHARI',  col:'#8844aa', desc:'Something went wrong. It watches.',
+   skin:'#8844aa',snout:'#664488',eyeCol:'#cc00ff',
+   tail:'tendril',feet:'shadow',   eye:'void',
+   unlock:'quest10',unlockHint:'Unlock in Quest Mode — Zone 10'},
+  {key:'codec',   label:'CODEC',    col:'#44cc88', desc:'???',
+   skin:'#44cc88',snout:'#55dd99',eyeCol:'#ff00ff',
+   tail:'glitch', feet:'digital',  eye:'glitch',
+   unlock:'secret',unlockHint:'Hidden. Something in the sequence...'},
+];
+
 let burrowTab=0;
 let burrowUpgrades={shell:1,legs:1,senses:1,core:1};
 let burrowCosmetic='default';
-let burrowSelectedCos='default';  // currently previewing (not necessarily equipped)
-let burrowConfirm=null;           // {type:'buy'|'equip', key, cost} — pending confirmation
-let burrowCosScroll=0;            // pixel scroll offset for cosmetics grid
+let burrowSelectedCos='default';
+let burrowConfirm=null;
+let burrowCosScroll=0;
+let burrowPersona='scute';
+let burrowSelectedPersona='scute';
+
+function checkPersonaUnlocks(){
+  if(!save.unlockedPersonas)save.unlockedPersonas=['scute'];
+  const ul=save.unlockedPersonas;
+  let changed=false;
+  if(!ul.includes('ironback')&&(save.totalCombines||0)>=10){ul.push('ironback');changed=true;}
+  if(!ul.includes('solfire')&&save.raidCompleted&&save.raidCompleted[0]&&save.raidCompleted[1]&&save.raidCompleted[2]){ul.push('solfire');changed=true;}
+  if(!ul.includes('codec')&&(save.totalRuns||0)>=50){ul.push('codec');changed=true;}
+  if(changed)persist();
+}
 
 function loadBurrowFromSave(){
   if(save.upgrades)burrowUpgrades={...{shell:1,legs:1,senses:1,core:1},...save.upgrades};
@@ -4403,28 +4586,30 @@ function loadBurrowFromSave(){
   if(!save.purchasedCosmetics)save.purchasedCosmetics=['default'];
   if(!save.purchasedCosmetics.includes(burrowCosmetic))save.purchasedCosmetics.push(burrowCosmetic);
   if(!save.inventory)save.inventory=[];
-  if(!save.equipped)save.equipped={helm:null,armor:null,boots:null};
+  if(!save.equipped)save.equipped={helm:null,armor:null,boots:null,trinket:null};
+  if(save.equipped.trinket===undefined)save.equipped.trinket=null;
   if(!save.invStackLimit)save.invStackLimit=5;
+  if(!save.unlockedPersonas)save.unlockedPersonas=['scute'];
+  if(!save.persona)save.persona='scute';
+  if(!save.totalCombines)save.totalCombines=0;
+  burrowPersona=save.persona||'scute';
+  burrowSelectedPersona=burrowPersona;
+  checkPersonaUnlocks();
 }
 
-function drawArmadilloIdle(cx,cy,sz,t,cosmetic){
+function drawArmadilloIdle(cx,cy,sz,t,cosmetic,personaKey){
   const cosData=COSMETICS.find(c=>c.key===cosmetic);
   const rawCol=cosData?.col||'#5bc8f5';
   const shellCol=typeof rawCol==='string'&&rawCol.startsWith('#')?rawCol:'#5bc8f5';
   const bodyCol='#1a3a5a';
-
-  // Idle bob
   const bobY=Math.sin(t*1.2)*1.5;
-  // Gentle wobble
   const wobble=Math.sin(t*0.5)*0.04;
-
   const scale=sz/28;
-  const P=(28/22)*scale; // match game P at this scale
-
+  const P=(28/22)*scale;
   g.save();
   g.translate(cx,cy+bobY);
   g.rotate(wobble);
-  drawPixelArmadillo(0,0,P,3,t,shellCol,bodyCol,null,null,cosmetic); // dir=3=left, idle
+  drawPixelArmadillo(0,0,P,3,t,shellCol,bodyCol,null,null,cosmetic,personaKey||'scute');
   g.restore();
 }
 
@@ -4461,7 +4646,7 @@ function drawBurrow(){
 
   // ── ARMADILLO IDLE ──
   const dilloCX=W/2, dilloCY=100;
-  drawArmadilloIdle(dilloCX,dilloCY,60,t,burrowCosmetic);
+  drawArmadilloIdle(dilloCX,dilloCY,60,t,burrowCosmetic,burrowPersona);
   // Character name
   const charName=save.characterName||'UNNAMED';
   g.fillStyle=C1;g.font='bold 11px system-ui,-apple-system,sans-serif';g.textAlign='center';
@@ -4471,14 +4656,13 @@ function drawBurrow(){
 
   // ── TABS ──
   const tabY=150,tabH=24;
-  const tabDefs=[['UPGRADES',0],['COSMETICS',1],['GEAR',2]];
+  const tabDefs=[['UPGRADES',0],['COSMETICS',1],['GEAR',2],['PERSONA',3]];
   tabDefs.forEach(([lbl,idx])=>{
-    const tw=120,tx2=W/2-tabDefs.length*62+idx*124;
+    const tw=100,tx2=W/2-tabDefs.length*52+idx*104;
     const on=burrowTab===idx;
     g.fillStyle=on?'#12122a':'#080810';g.fillRect(tx2,tabY,tw,tabH);
-    g.strokeStyle=on?(idx===2?'#22ffcc':'#ffd700'):'#2a2458';g.lineWidth=on?1.5:0.5;g.strokeRect(tx2,tabY,tw,tabH);
-    g.fillStyle=on?(idx===2?'#22ffcc':'#ffd700'):TX.dim;g.font='bold 10px system-ui,-apple-system,sans-serif';g.textAlign='center';
-    // Show item count badge on GEAR tab
+    g.strokeStyle=on?(idx===3?'#aa44ff':idx===2?'#22ffcc':'#ffd700'):'#2a2458';g.lineWidth=on?1.5:0.5;g.strokeRect(tx2,tabY,tw,tabH);
+    g.fillStyle=on?(idx===3?'#aa44ff':idx===2?'#22ffcc':'#ffd700'):TX.dim;g.font='bold 10px system-ui,-apple-system,sans-serif';g.textAlign='center';
     const badge=idx===2&&(save.inventory||[]).length>0?' ('+save.inventory.length+')':'';
     g.fillText(lbl+badge,tx2+tw/2,tabY+16);
     mkbtn(tx2,tabY,tw,tabH,()=>{burrowTab=idx;burrowConfirm=null;invSelectedIdx=-1;invConfirm=null;burrowCosScroll=0;});
@@ -5072,6 +5256,110 @@ function drawBurrow(){
         }
       }
     }
+
+  } else if(burrowTab===3){
+    // ── PERSONA TAB ──
+    if(!save.unlockedPersonas)save.unlockedPersonas=['scute'];
+    const isUnlocked=(p)=>!p.unlock||save.unlockedPersonas.includes(p.key);
+    const selP=PERSONAS.find(p=>p.key===burrowSelectedPersona)||PERSONAS[0];
+    const selUnlocked=isUnlocked(selP);
+    const selEquipped=burrowPersona===selP.key;
+
+    // ── LEFT: Preview panel ──
+    const prevW=200,prevH=contentH,prevX=16,prevY=contentY;
+    g.fillStyle='#08080f';g.fillRect(prevX,prevY,prevW,prevH);
+    g.strokeStyle=selUnlocked?selP.col:'#2a2a3a';g.lineWidth=1.4;g.strokeRect(prevX,prevY,prevW,prevH);
+
+    // Preview armadillo — full persona, animated
+    drawArmadilloIdle(prevX+prevW/2,prevY+prevH*0.35,56,t,burrowCosmetic,selP.key);
+
+    g.textAlign='center';
+    g.fillStyle=selUnlocked?selP.col:TX.faint;g.font='bold 12px system-ui,-apple-system,sans-serif';
+    g.fillText(selP.label,prevX+prevW/2,prevY+prevH*0.65);
+    g.fillStyle=TX.dim;g.font='8px system-ui,-apple-system,sans-serif';
+    const dw=selP.desc.split(' '),dY=prevY+prevH*0.70;let dRow='',dRY=dY;
+    dw.forEach(w=>{const t2=dRow?dRow+' '+w:w;if(g.measureText(t2).width>prevW-20&&dRow){g.fillText(dRow,prevX+prevW/2,dRY);dRow=w;dRY+=11;}else dRow=t2;});
+    if(dRow)g.fillText(dRow,prevX+prevW/2,dRY);
+
+    if(selEquipped){
+      g.fillStyle='#aa44ff';g.font='bold 9px system-ui,-apple-system,sans-serif';
+      g.fillText('★ ACTIVE PERSONA',prevX+prevW/2,prevY+prevH*0.82);
+    } else if(!selUnlocked){
+      g.fillStyle=TX.bad;g.font='8px system-ui,-apple-system,sans-serif';
+      g.fillText('LOCKED',prevX+prevW/2,prevY+prevH*0.80);
+      g.fillStyle=TX.faint;g.font='italic 7px system-ui,-apple-system,sans-serif';
+      const hw=selP.unlockHint.split(' ');let hRow='',hY=prevY+prevH*0.85;
+      hw.forEach(w=>{const t2=hRow?hRow+' '+w:w;if(g.measureText(t2).width>prevW-24&&hRow){g.fillText(hRow,prevX+prevW/2,hY);hRow=w;hY+=10;}else hRow=t2;});
+      if(hRow)g.fillText(hRow,prevX+prevW/2,hY);
+    } else {
+      g.fillStyle=TX.good;g.font='bold 9px system-ui,-apple-system,sans-serif';
+      g.fillText('✓ UNLOCKED',prevX+prevW/2,prevY+prevH*0.82);
+    }
+
+    // Action button
+    const abx=prevX+10,aby=prevY+prevH-42,abw=prevW-20,abh=30;
+    if(selEquipped){
+      g.fillStyle='#0a0a1a';g.fillRect(abx,aby,abw,abh);
+      g.strokeStyle='#aa44ff';g.lineWidth=1;g.strokeRect(abx,aby,abw,abh);
+      g.fillStyle='#aa44ff';g.font='bold 9px system-ui,-apple-system,sans-serif';g.textAlign='center';
+      g.fillText('★ ACTIVE',abx+abw/2,aby+abh*0.65);
+    } else if(selUnlocked){
+      g.fillStyle='#0a0a18';g.fillRect(abx,aby,abw,abh);
+      g.strokeStyle='#aa44ff';g.lineWidth=1.2;g.strokeRect(abx,aby,abw,abh);
+      g.fillStyle='#aa44ff';g.font='bold 10px system-ui,-apple-system,sans-serif';g.textAlign='center';
+      g.fillText('PLAY AS '+selP.label+' →',abx+abw/2,aby+abh*0.65);
+      mkbtn(abx,aby,abw,abh,()=>{
+        burrowPersona=selP.key;save.persona=selP.key;persist();
+      });
+    } else {
+      g.fillStyle='#0a0808';g.fillRect(abx,aby,abw,abh);
+      g.strokeStyle='#3a1a1a';g.lineWidth=1;g.strokeRect(abx,aby,abw,abh);
+      g.fillStyle=TX.faint;g.font='9px system-ui,-apple-system,sans-serif';g.textAlign='center';
+      g.fillText('LOCKED',abx+abw/2,aby+abh*0.65);
+    }
+
+    // ── RIGHT: Persona grid ──
+    const pgX=prevX+prevW+8,pgW=W-pgX-12;
+    const pPerRow=3,pCellW=Math.floor(pgW/pPerRow)-4,pCellH=110;
+    PERSONAS.forEach((p,pi)=>{
+      const pRow=Math.floor(pi/pPerRow),pCol=pi%pPerRow;
+      const pcx=pgX+pCol*(pCellW+4),pcy=contentY+pRow*(pCellH+4);
+      if(pcy+pCellH>contentY+contentH)return;
+      const unlocked=isUnlocked(p);
+      const equipped=burrowPersona===p.key;
+      const selected=burrowSelectedPersona===p.key;
+
+      g.fillStyle=selected?'#14102a':equipped?'#100818':'#08080f';
+      g.fillRect(pcx,pcy,pCellW,pCellH);
+      g.strokeStyle=selected?p.col:equipped?p.col+'88':'#1a1a30';
+      g.lineWidth=selected?1.8:equipped?1.2:0.5;g.strokeRect(pcx,pcy,pCellW,pCellH);
+
+      // Mini armadillo preview
+      if(unlocked){
+        drawArmadilloIdle(pcx+pCellW/2,pcy+pCellH*0.40,22,selected?t:0,burrowCosmetic,p.key);
+      } else {
+        g.fillStyle='rgba(255,255,255,0.08)';
+        g.font='bold 18px system-ui';g.textAlign='center';
+        g.fillText('?',pcx+pCellW/2,pcy+pCellH*0.42);
+      }
+
+      g.fillStyle=unlocked?(equipped?'#aa44ff':p.col):TX.faint;
+      g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
+      g.fillText(p.label,pcx+pCellW/2,pcy+pCellH*0.76);
+
+      if(equipped){
+        g.fillStyle='#aa44ff';g.font='bold 7px system-ui,-apple-system,sans-serif';
+        g.fillText('★ACTIVE',pcx+pCellW/2,pcy+pCellH*0.89);
+      } else if(unlocked){
+        g.fillStyle=TX.good;g.font='7px system-ui,-apple-system,sans-serif';
+        g.fillText('✓OWN',pcx+pCellW/2,pcy+pCellH*0.89);
+      } else {
+        g.fillStyle=TX.bad;g.font='6.5px system-ui,-apple-system,sans-serif';
+        g.fillText('LOCKED',pcx+pCellW/2,pcy+pCellH*0.89);
+      }
+
+      mkbtn(pcx,pcy,pCellW,pCellH,()=>{burrowSelectedPersona=p.key;});
+    });
   }
 }
 
@@ -5254,12 +5542,14 @@ function drawhud(){
   g.textAlign='center';
   const tc=gt<30?TX.bad:gt<60?TX.warn:TX.head;
   if(!raidMode&&gameMode==='janitor'){
-    // Janitor mode: show ∞ and cleaned cell count
-    g.fillStyle='#44ffcc';g.font=F(13,true);g.textAlign='center';
-    g.fillText('⛧ COSMIC JANITOR',W/2,22);
-    const cleaned=janitor.sweepQ.length;
+    const janCov=Math.round(p1.vis.size/(COLS*ROWS)*100);
+    const janTC=gt<10?TX.bad:gt<20?TX.warn:'#44ffcc';
+    g.fillStyle='#44ffcc';g.font=F(11,true);g.textAlign='center';
+    g.fillText('⛧ COSMIC JANITOR',W/2,18);
+    g.fillStyle=janTC;g.font=F(18,true);
+    g.fillText(m+':'+s,W/2,38);
     g.fillStyle=TX.dim;g.font=FS(8,false);
-    g.fillText(cleaned>0?cleaned+' cells pending reset':'⬡ '+runCoins+' coins this run',W/2,36);
+    g.fillText(janCov+'% RECLAIMED \xb7 '+runCoins.toLocaleString()+' \u25c9',W/2,50);
   } else if(!raidMode){
     g.fillStyle=TX.dim;g.font=FS(9,false);g.fillText('TIME',W/2,14);
     g.fillStyle=tc;g.font=F(19,true);g.fillText(m+':'+s,W/2,34);
