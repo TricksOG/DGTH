@@ -231,13 +231,13 @@ const BASE_PTYPES=PTYPES.filter(t=>t!=='HEALTH');
 // ── DIFFICULTY ──────────────────────────────────────────────────────────────
 const DIFFS=['NORMAL','HEROIC','MYTHIC','LEGENDARY','INSANE','NIGHTMARE','FIENDISH'];
 const DIFF_CFG={
-  NORMAL:    {bfsBonus:0, noise:26, capTimer:8,  pupRate:13, escapeStag:7.0, label:'NORMAL',    col:'#4ade80', aiSpd:0.82, playerSpd:1.0,  voidRate:0,  voidSize:0,  starMult:1.0, coinMult:1.0,  blurb:'Easygoing AI \xb7 8s capture window \xb7 good for learning'},
-  HEROIC:    {bfsBonus:1, noise:7,  capTimer:5,  pupRate:18, escapeStag:2.5, label:'HEROIC',    col:'#4a9eff', aiSpd:1.15, playerSpd:1.0,  voidRate:0,  voidSize:0,  starMult:1.0, coinMult:1.4,  blurb:'Faster, smarter AI \xb7 5s capture window \xb7 competitive'},
-  MYTHIC:    {bfsBonus:1, noise:7,  capTimer:4,  pupRate:28, escapeStag:2.5, label:'MYTHIC',    col:'#cc44ff', aiSpd:1.15, playerSpd:0.88, voidRate:15, voidSize:4,  starMult:1.2, coinMult:2.0,  blurb:'Heroic AI + void pulses \xb7 4s capture window \xb7 punishing'},
-  LEGENDARY: {bfsBonus:1, noise:7,  capTimer:4,  pupRate:40, escapeStag:2.5, label:'LEGENDARY', col:'#ef9f27', aiSpd:1.15, playerSpd:0.78, voidRate:8,  voidSize:7,  starMult:1.4, coinMult:3.0,  blurb:'Heroic AI + frequent voids \xb7 4s capture window \xb7 relentless'},
-  INSANE:    {bfsBonus:2, noise:4,  capTimer:3,  pupRate:55, escapeStag:1.8, label:'INSANE',    col:'#ff4444', aiSpd:1.30, playerSpd:0.70, voidRate:5,  voidSize:9,  starMult:1.7, coinMult:5.0,  blurb:'Elite AI \xb7 3s capture window \xb7 dense voids \xb7 no margin'},
-  NIGHTMARE: {bfsBonus:2, noise:2,  capTimer:2.5,pupRate:70, escapeStag:1.4, label:'NIGHTMARE', col:'#ff0088', aiSpd:1.45, playerSpd:0.62, voidRate:3,  voidSize:12, starMult:2.0, coinMult:8.0,  blurb:'Perfect AI \xb7 2.5s capture \xb7 constant voids \xb7 for the broken'},
-  FIENDISH:  {bfsBonus:2, noise:1,  capTimer:2,  pupRate:90, escapeStag:1.0, label:'FIENDISH',  col:'#8b0000', aiSpd:1.60, playerSpd:0.55, voidRate:2,  voidSize:15, starMult:2.5, coinMult:15.0, blurb:'Omniscient AI \xb7 2s capture \xb7 board is mostly void \xb7 you will lose'},
+  NORMAL:    {bfsBonus:0, noise:26, capTimer:8,  pupRate:13, escapeStag:7.0, label:'NORMAL',    col:'#4ade80', aiSpd:0.82, playerSpd:1.0,  voidRate:0,  voidSize:0,  starMult:1.0, coinMult:1.0,  personality:'EXPLORER',  blurb:'Easygoing AI \xb7 8s capture window \xb7 good for learning'},
+  HEROIC:    {bfsBonus:1, noise:7,  capTimer:5,  pupRate:18, escapeStag:2.5, label:'HEROIC',    col:'#4a9eff', aiSpd:1.15, playerSpd:1.0,  voidRate:0,  voidSize:0,  starMult:1.0, coinMult:1.4,  personality:'EXPLORER',  blurb:'Faster, smarter AI \xb7 5s capture window \xb7 competitive'},
+  MYTHIC:    {bfsBonus:1, noise:7,  capTimer:4,  pupRate:28, escapeStag:2.5, label:'MYTHIC',    col:'#cc44ff', aiSpd:1.15, playerSpd:0.88, voidRate:15, voidSize:4,  starMult:1.2, coinMult:2.0,  personality:'SEEKER',    blurb:'Seam-hunting AI \xb7 4s capture window \xb7 punishing'},
+  LEGENDARY: {bfsBonus:1, noise:7,  capTimer:4,  pupRate:40, escapeStag:2.5, label:'LEGENDARY', col:'#ef9f27', aiSpd:1.15, playerSpd:0.78, voidRate:8,  voidSize:7,  starMult:1.4, coinMult:3.0,  personality:'HOARDER',   blurb:'Density-hoarding AI \xb7 4s capture window \xb7 relentless'},
+  INSANE:    {bfsBonus:2, noise:4,  capTimer:3,  pupRate:55, escapeStag:1.8, label:'INSANE',    col:'#ff4444', aiSpd:1.30, playerSpd:0.70, voidRate:5,  voidSize:9,  starMult:1.7, coinMult:5.0,  personality:'PREDATOR',  blurb:'Intercepting AI \xb7 3s capture window \xb7 cuts you off'},
+  NIGHTMARE: {bfsBonus:2, noise:2,  capTimer:2.5,pupRate:70, escapeStag:1.4, label:'NIGHTMARE', col:'#ff0088', aiSpd:1.45, playerSpd:0.62, voidRate:3,  voidSize:12, starMult:2.0, coinMult:8.0,  personality:'PREDATOR',  blurb:'Perfect interceptor \xb7 2.5s capture \xb7 constant voids'},
+  FIENDISH:  {bfsBonus:2, noise:1,  capTimer:2,  pupRate:90, escapeStag:1.0, label:'FIENDISH',  col:'#8b0000', aiSpd:1.60, playerSpd:0.55, voidRate:2,  voidSize:15, starMult:2.5, coinMult:15.0, personality:'GHOST',     blurb:'Omniscient ghost \xb7 2s capture \xb7 board is mostly void \xb7 you will lose'},
 };
 
 // ── RAIDS ─────────────────────────────────────────────────────────────────────
@@ -737,26 +737,103 @@ function aistep(w){
   const depth=getAIDepth();
   const escaping=w.stag>cfg.escapeStag;
   const isMythicPlus=['MYTHIC','LEGENDARY','INSANE','NIGHTMARE','FIENDISH'].includes(difficulty);
+  const personality=cfg.personality||'EXPLORER';
   let best=-Infinity,bdir=w.dir;
+
   for(let di=0;di<4;di++){
     if(di===opp)continue;
     const nx=w.gx+DX[di],ny=w.gy+DY[di];
     if(!canEnter(nx,ny))continue;
     const cell=sub[ny][nx];
     let sc=0;
+
     if(escaping){
+      // All personalities escape the same way — find open space fast
       sc=lookahead(nx,ny,depth+2)*20;
       if(!cell.v)sc+=cell.d*8;
     } else {
-      sc=cell.v?cell.sf*5:cell.d*10+50;
-      if(cell.seam&&!cell.v)sc+=30;
-      if(di===w.dir)sc+=6;
-      sc+=lookahead(nx,ny,isMythicPlus?depth+4:depth)*(isMythicPlus?8:4);
+
+      if(personality==='EXPLORER'){
+        // Balanced coverage maximiser — current baseline behaviour
+        sc=cell.v?cell.sf*5:cell.d*10+50;
+        if(cell.seam&&!cell.v)sc+=30;
+        if(di===w.dir)sc+=6;
+        sc+=lookahead(nx,ny,isMythicPlus?depth+4:depth)*(isMythicPlus?8:4);
+      }
+
+      else if(personality==='SEEKER'){
+        // Seam-hunter: scores zone crossings massively, ignores revisits
+        sc=cell.v?cell.sf*2:cell.d*8+30;
+        if(cell.seam&&!cell.v)sc+=120; // seam crossing is the prize
+        if(cell.seam&&cell.v)sc+=50;   // even revisiting a seam border is ok
+        // Bonus for any cell adjacent to a different zone
+        let adjSeam=false;
+        for(let d2=0;d2<4;d2++){const ax=nx+DX[d2],ay=ny+DY[d2];if(ax>=0&&ax<COLS&&ay>=0&&ay<ROWS&&sub[ay][ax].zone!==cell.zone)adjSeam=true;}
+        if(adjSeam&&!cell.v)sc+=40;
+        if(di===w.dir)sc+=4;
+        sc+=lookahead(nx,ny,depth+2)*3;
+      }
+
+      else if(personality==='HOARDER'){
+        // Density miser: locks onto high-density cells and won't leave them
+        const densityWeight=cell.d*22; // double the explorer density weight
+        sc=cell.v?cell.sf*3:densityWeight+40;
+        if(cell.d>=4&&!cell.v)sc+=60;   // loves dense unvisited cells
+        if(cell.d>=5&&!cell.v)sc+=40;   // extra craving for max-density
+        if(cell.seam&&!cell.v)sc+=15;   // seams are ok but not the priority
+        if(di===w.dir)sc+=8;            // strong momentum — ploughs through dense zones
+        sc+=lookahead(nx,ny,depth)*(isMythicPlus?6:3);
+        // Reluctant to leave dense territory — penalise low-density exits
+        if(cell.d<=2)sc-=30;
+      }
+
+      else if(personality==='PREDATOR'){
+        // Interceptor: moves toward player's frontier to cut off expansion
+        const pdx=p1.gx-nx,pdy=p1.gy-ny;
+        const distToPlayer=Math.hypot(pdx,pdy);
+        // Score for getting close to player (but not on top of them)
+        const interceptBonus=distToPlayer<6?Math.max(0,(6-distToPlayer)*12):0;
+        sc=cell.v?cell.sf*4:cell.d*10+40;
+        sc+=interceptBonus;
+        // Big bonus for cells ADJACENT to player's visited territory (blocking their path)
+        let adjToP1=false;
+        for(let d2=0;d2<4;d2++){const ax=nx+DX[d2],ay=ny+DY[d2];if(ax>=0&&ax<COLS&&ay>=0&&ay<ROWS&&p1.vis.has(ax+','+ay))adjToP1=true;}
+        if(adjToP1&&!cell.v)sc+=55;
+        if(cell.seam&&!cell.v)sc+=20;
+        if(di===w.dir)sc+=5;
+        sc+=lookahead(nx,ny,isMythicPlus?depth+3:depth)*(isMythicPlus?7:4);
+      }
+
+      else if(personality==='GHOST'){
+        // Chaotic-smart: alternates between precise lookahead and random lunges
+        // Unpredictable but capable of brilliant plays — most terrifying at Fiendish
+        const ghostPhase=Math.floor(Date.now()/2200)%3; // phase shifts every 2.2s
+        if(ghostPhase===0){
+          // PHASE: deep lookahead (scariest — pure optimal play)
+          sc=cell.v?cell.sf*3:cell.d*10+50;
+          if(cell.seam&&!cell.v)sc+=40;
+          sc+=lookahead(nx,ny,depth+5)*12; // deepest search of all personalities
+        } else if(ghostPhase===1){
+          // PHASE: seam-obsessed lunge
+          sc=cell.seam&&!cell.v?200:cell.v?cell.sf*2:cell.d*6+20;
+          if(cell.seam)sc+=80;
+        } else {
+          // PHASE: density predator
+          sc=cell.v?cell.sf*2:cell.d*18+45;
+          if(cell.d>=4)sc+=70;
+          // Occasionally mirror predator intercept
+          const distToPlayer=Math.hypot(p1.gx-nx,p1.gy-ny);
+          if(distToPlayer<5)sc+=distToPlayer*8;
+        }
+        if(di===w.dir)sc+=3;
+      }
     }
+
     sc+=Math.random()*cfg.noise;
     if(sc>best){best=sc;bdir=di;}
   }
-  // Chase powerups
+
+  // All personalities chase adjacent powerups
   for(let di=0;di<4;di++){
     const nx=w.gx+DX[di],ny=w.gy+DY[di];
     if(powerups.some(p=>p.c===nx&&p.r===ny)&&canEnter(nx,ny))bdir=di;
@@ -1205,6 +1282,10 @@ function startLevel(lvIdx){
   particles=[];scorePopups=[];shakeMag=0;vigA=0;winParticlesInit=false;
   runCoins=0;activeGameMode=gameMode;
   music.play(getLevelTrack(lvIdx));
+  // Personality announcement
+  const _pers=getDiffCfg().personality||'EXPLORER';
+  const _persNames={EXPLORER:'EXPLORER',SEEKER:'SEAM SEEKER',HOARDER:'HOARDER',PREDATOR:'PREDATOR',GHOST:'GHOST'};
+  sm='ECHO-7 \u2014 '+(_persNames[_pers]||_pers)+' PROTOCOL ACTIVE';smt=3.0;
   document.getElementById('hint').textContent=
     gameMode==='2p'?'P1: WASD  \xb7  P2: Arrow keys  \xb7  ESC: Pause':'Arrow keys / WASD  \xb7  ESC: Pause';
 }
@@ -1224,6 +1305,11 @@ function startFreeplay(){
   particles=[];scorePopups=[];shakeMag=0;vigA=0;winParticlesInit=false;
   runCoins=0;activeGameMode=gameMode;
   music.play('genesis');
+  if(gameMode==='vsai'){
+    const _fp=getDiffCfg().personality||'EXPLORER';
+    const _fpN={EXPLORER:'EXPLORER',SEEKER:'SEAM SEEKER',HOARDER:'HOARDER',PREDATOR:'PREDATOR',GHOST:'GHOST'};
+    sm='ECHO-7 \u2014 '+(_fpN[_fp]||_fp)+' PROTOCOL ACTIVE';smt=3.0;
+  }
   document.getElementById('hint').textContent=
     gameMode==='2p'?'P1: WASD  \xb7  P2: Arrow keys  \xb7  ESC: Pause':'Arrow keys / WASD  \xb7  ESC: Pause';
 }
@@ -2396,8 +2482,8 @@ function drawArmadillo(w,hcol){
     const pulse=0.85+0.15*Math.sin(t*8);
     const r=CS*0.42*pulse;
     const cx=w.px,cy=w.py;
-    // Get shell color
-    const cosCol=COSMETICS.find(c=>c.key===(burrowCosmetic||'default'))?.col||hcol;
+    // Get shell color — AI (P2) always uses default skin
+    const cosCol=COSMETICS.find(c=>c.key===(isP1?(burrowCosmetic||'default'):'default'))?.col||hcol;
     const shellCol=typeof cosCol==='string'&&cosCol.startsWith('#')?cosCol:hcol;
     g.shadowColor=w.curlManual?'#ffd700':TX.bad;
     g.shadowBlur=w.curlManual?16:10;
@@ -2426,8 +2512,8 @@ function drawArmadillo(w,hcol){
   const cx=w.px,cy=w.py;
   const dir=w.fd; // 0=up,1=right,2=down,3=left
 
-  // State-driven shell color
-  const cosCol=COSMETICS.find(c=>c.key===(burrowCosmetic||'default'))?.col||hcol;
+  // State-driven shell color — AI (P2) always uses default skin
+  const cosCol=COSMETICS.find(c=>c.key===(isP1?(burrowCosmetic||'default'):'default'))?.col||hcol;
   let shellCol=typeof cosCol==='string'&&cosCol.startsWith('#')?cosCol:hcol;
   let bodyCol=isP1?'#1a3a5a':'#3a2200';
   if(w.stunned>0){shellCol='#666666';}
@@ -3348,15 +3434,20 @@ function drawtitle(){
   const dpw=96,dpx=mbx-dpw-6,dpy=cy,dph=rowH;
   g.fillStyle='#080810';g.fillRect(dpx,dpy,dpw,dph);
   g.strokeStyle=selCfg.col;g.lineWidth=1.2;g.strokeRect(dpx,dpy,dpw,dph);
-  g.fillStyle=selCfg.col;
-  const dpFontSz=difficulty.length>8?7:9;
+  const dpFontSz=difficulty.length>8?8:10;
   g.font='bold '+Math.round(dpFontSz*fs)+'px system-ui,-apple-system,sans-serif';
   g.textAlign='center';
+  g.shadowColor='rgba(0,0,0,0.95)';g.shadowBlur=5;g.shadowOffsetX=1;g.shadowOffsetY=1;
+  g.fillStyle=selCfg.col;
   g.fillText(difficulty+' '+(diffDropOpen?'\u25b4':'\u25be'),dpx+dpw/2,dpy+Math.round(dph*0.7));
+  g.shadowBlur=0;g.shadowOffsetX=0;g.shadowOffsetY=0;
   mkbtn(dpx,dpy,dpw,dph,()=>diffDropOpen=!diffDropOpen);
   // Blurb below pill
-  g.fillStyle=selCfg.col;g.font=FS(8,false);g.textAlign='right';
+  g.font=FS(9,false);g.textAlign='right';
+  g.shadowColor='rgba(0,0,0,0.95)';g.shadowBlur=5;g.shadowOffsetX=1;g.shadowOffsetY=1;
+  g.fillStyle=selCfg.col;
   g.fillText(selCfg.blurb,mbx+mbw,dpy+dph+11);
+  g.shadowBlur=0;g.shadowOffsetX=0;g.shadowOffsetY=0;
 
   // Dropdown drawn deferred (at end of drawtitle) so it's always on top of HTP cards
 
@@ -3547,37 +3638,32 @@ function drawtitle(){
 
   // ── DIFFICULTY DROPDOWN — drawn last so it's above HTP cards ──
   if(diffDropOpen){
-    const itemH=16;
+    const itemH=20;
     const totalH=DIFFS.length*itemH+2;
-    const borderPad=10; // don't clip the animated border
-    // Open upward from pill, clamped so top doesn't go above border
-    const rawTop=dpy-totalH-2;
-    const dropY=Math.max(borderPad, rawTop);
-    // Panel bg
-    g.fillStyle='#050510';g.fillRect(dpx-1,dropY,dpw+2,totalH);
-    g.strokeStyle='#3a3a55';g.lineWidth=0.8;g.strokeRect(dpx-1,dropY,dpw+2,totalH);
+    const borderPad=10;
+    const rawTop=dpy-totalH-4;
+    const dropY=Math.max(borderPad,rawTop);
+    // ── Elevated surface ──
+    g.fillStyle='#242442';g.fillRect(dpx,dropY,dpw,totalH);
+    g.strokeStyle='#4a4a6a';g.lineWidth=1;g.strokeRect(dpx,dropY,dpw,totalH);
     DIFFS.forEach((d,i)=>{
       const cfg=DIFF_CFG[d];
       const iy=dropY+i*itemH;
       const on=difficulty===d;
-      // Row bg
-      g.fillStyle=on?`rgba(${hexRGB(cfg.col)},0.18)`:'#070712';
-      g.fillRect(dpx,iy,dpw,itemH);
-      // Left color stripe
-      g.fillStyle=cfg.col;g.fillRect(dpx,iy+2,2,itemH-4);
-      // Separator
-      if(i>0){g.strokeStyle='#1a1a2a';g.lineWidth=0.4;g.beginPath();g.moveTo(dpx+3,iy);g.lineTo(dpx+dpw,iy);g.stroke();}
-      // FIENDISH ⛧ pentagrams in deep blood red
-      if(d==='FIENDISH'){
-        g.fillStyle='#770011';g.font=Math.round(7*fs)+'px system-ui,-apple-system,sans-serif';
-        g.textAlign='left';g.fillText('⛧',dpx+4,iy+itemH*0.72);
-        g.textAlign='right';g.fillText('⛧',dpx+dpw-4,iy+itemH*0.72);
+      // Selected row: subtle tint
+      if(on){
+        g.fillStyle=`rgba(${hexRGB(cfg.col)},0.20)`;
+        g.fillRect(dpx,iy,dpw,itemH);
       }
-      // Label in difficulty color — full color if selected, dimmed if not
-      g.fillStyle=on?cfg.col:cfg.col+'aa';
-      g.font=(on?'bold ':'')+Math.round(7.5*fs)+'px system-ui,-apple-system,sans-serif';
+      // Separator — only between rows, very quiet
+      if(i>0){g.strokeStyle='rgba(255,255,255,0.06)';g.lineWidth=0.5;g.beginPath();g.moveTo(dpx,iy);g.lineTo(dpx+dpw,iy);g.stroke();}
+      // Selected: 4px left accent bar in difficulty color
+      if(on){g.fillStyle=cfg.col;g.fillRect(dpx,iy,4,itemH);}
+      // Label — white always; bold + full opacity if selected, dimmed if not
+      g.font=(on?'bold ':'')+Math.round(8.5*fs)+'px system-ui,-apple-system,sans-serif';
       g.textAlign='center';
-      g.fillText(d,dpx+dpw/2,iy+itemH*0.72);
+      g.fillStyle=on?'#ffffff':'rgba(255,255,255,0.7)';
+      g.fillText(d,dpx+dpw/2,iy+itemH*0.62);
       mkbtn(dpx,iy,dpw,itemH,()=>{difficulty=d;save.difficulty=d;persist();diffDropOpen=false;});
     });
   }
@@ -4098,11 +4184,18 @@ function drawBurrow(){
         const isCurrent=tier===curTier;
         const isMax=tier===maxTiers&&curTier>=maxTiers;
 
-        // Tier bg — owned = subtle glow, current = highlighted
-        g.fillStyle=owned?`rgba(${hexRGB(upg.col)},0.10)`:'#050508';
+        // Tier bg — owned = subtle glow, current = highlighted, isNext = purchase prompt
+        if(isNext&&!isMax){
+          g.fillStyle=canAfford?'rgba(20,40,20,0.85)':'rgba(30,8,8,0.85)';
+        } else {
+          g.fillStyle=owned?`rgba(${hexRGB(upg.col)},0.10)`:'#050508';
+        }
         g.fillRect(ux+3,ty2,uw-6,tierH-2);
         if(isCurrent){
           g.strokeStyle=upg.col;g.lineWidth=1.4;
+          g.strokeRect(ux+3,ty2,uw-6,tierH-2);
+        } else if(isNext&&!isMax){
+          g.strokeStyle=canAfford?upg.col:'#5a1a1a';g.lineWidth=1;
           g.strokeRect(ux+3,ty2,uw-6,tierH-2);
         }
 
@@ -4112,7 +4205,7 @@ function drawBurrow(){
         g.fillText('T'+tier,ux+11,ty2+Math.min(11,tierH*0.55));
 
         // Description — single line, truncated
-        g.fillStyle=owned?TX.body:TX.faint;
+        g.fillStyle=owned?TX.body:isNext?(canAfford?TX.body:TX.bad):TX.faint;
         g.font='6.5px system-ui,-apple-system,sans-serif';g.textAlign='left';
         const descX=ux+19, descMaxW=uw-24;
         let desc=tierDesc.split('—')[1]?.trim()||tierDesc;
@@ -4125,15 +4218,12 @@ function drawBurrow(){
           g.fillText('✓',ux+uw-4,ty2+Math.min(11,tierH*0.55));
         }
 
-        // Buy button — only shows for next purchasable tier
-        if(isNext&&tier<=maxTiers){
-          const bh2=Math.min(13,tierH-4),bx2=ux+4,bw2=uw-8,by2=ty2+tierH-bh2-1;
-          g.fillStyle=canAfford?'#0a1a0a':'#100808';g.fillRect(bx2,by2,bw2,bh2);
-          g.strokeStyle=canAfford?upg.col:'#3a1010';g.lineWidth=0.8;g.strokeRect(bx2,by2,bw2,bh2);
+        // Cost label inside card for next tier
+        if(isNext&&!isMax){
           g.fillStyle=canAfford?upg.col:TX.bad;g.font='bold 6px system-ui,-apple-system,sans-serif';g.textAlign='center';
-          g.fillText(canAfford?'⬡ '+fmtCost(cost):'⬡ '+fmtCost(cost)+' coins',bx2+bw2/2,by2+bh2*0.72);
+          g.fillText(canAfford?'⬡ '+fmtCost(cost)+' — TAP TO BUY':'⬡ '+fmtCost(cost)+' — NEED MORE COINS',ux+uw/2,ty2+tierH-3);
           if(canAfford){
-            mkbtn(bx2,by2,bw2,bh2,()=>{
+            mkbtn(ux+3,ty2,uw-6,tierH-2,()=>{
               save.coins-=cost;
               burrowUpgrades[upg.key]=tier;
               if(!save.upgrades)save.upgrades={};
@@ -4239,7 +4329,7 @@ function drawBurrow(){
     // ── RIGHT: Cosmetic grid ──
     const gridX=prevX+prevW+8,gridW=W-gridX-12;
     const perRow=4,cellW=Math.floor(gridW/perRow)-4;
-    const cellH=70;
+    const cellH=90;
 
     COSMETICS.forEach((cos,ci)=>{
       const row=Math.floor(ci/perRow),col2=ci%perRow;
@@ -4258,26 +4348,27 @@ function drawBurrow(){
       g.strokeStyle=selected?cos.col:equipped?cos.col+'88':'#1a1a30';
       g.lineWidth=selected?1.8:equipped?1.2:0.5;g.strokeRect(cx2,cy2,cellW,cellH);
 
-      // Small armadillo preview
-      drawArmadilloIdle(cx2+cellW/2,cy2+cellH*0.42,18,t+ci*0.5,cos.key);
+      // Armadillo preview — animated only when selected, static otherwise
+      const previewT=selected?t:0;
+      drawArmadilloIdle(cx2+cellW/2,cy2+cellH*0.42,24,previewT,cos.key);
 
       // Label
       g.fillStyle=equipped?'#ffd700':owned?cos.col:rMet?TX.dim:TX.faint;
-      g.font='bold 6.5px system-ui,-apple-system,sans-serif';g.textAlign='center';
+      g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
       g.fillText(cos.label.length>11?cos.label.slice(0,10)+'…':cos.label,cx2+cellW/2,cy2+cellH*0.78);
 
       // Status tag
       if(equipped){
-        g.fillStyle='#ffd700';g.font='5.5px system-ui,-apple-system,sans-serif';
+        g.fillStyle='#ffd700';g.font='bold 7px system-ui,-apple-system,sans-serif';
         g.fillText('★EQ',cx2+cellW/2,cy2+cellH*0.9);
       } else if(owned){
-        g.fillStyle=TX.good;g.font='5.5px system-ui,-apple-system,sans-serif';
+        g.fillStyle=TX.good;g.font='7px system-ui,-apple-system,sans-serif';
         g.fillText('✓OWN',cx2+cellW/2,cy2+cellH*0.9);
       } else if(!rMet){
-        g.fillStyle=TX.bad;g.font='5.5px system-ui,-apple-system,sans-serif';
+        g.fillStyle=TX.bad;g.font='7px system-ui,-apple-system,sans-serif';
         g.fillText('LOCKED',cx2+cellW/2,cy2+cellH*0.9);
       } else {
-        g.fillStyle=save.coins>=cos.cost?TX.warn:TX.bad;g.font='5.5px system-ui,-apple-system,sans-serif';
+        g.fillStyle=save.coins>=cos.cost?TX.warn:TX.bad;g.font='7px system-ui,-apple-system,sans-serif';
         g.fillText('⬡'+fmtCost(cos.cost),cx2+cellW/2,cy2+cellH*0.9);
       }
 
@@ -4347,7 +4438,7 @@ function drawBurrow(){
     const eqW=190,eqX=14;
     const slotH=(contentH-4)/3;
     const SLOTS=['helm','armor','boots'];
-    const SLOT_LABELS={helm:'HELM ⛨',armor:'ARMOR ▦',boots:'BOOTS ⊞'};
+    const SLOT_LABELS={helm:'⛑ HELM',armor:'◈ ARMOR',boots:'⊞ BOOTS'};
 
     SLOTS.forEach((slot,si)=>{
       const sy=contentY+si*(slotH+2);
@@ -4362,38 +4453,38 @@ function drawBurrow(){
       g.strokeRect(eqX,sy,eqW,slotH-2);g.shadowBlur=0;
 
       // Slot label
-      g.fillStyle=item?col:'#2a2a3a';g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='left';
-      g.fillText(SLOT_LABELS[slot],eqX+6,sy+12);
+      g.fillStyle=item?col:'#2a2a3a';g.font='bold 10px system-ui,-apple-system,sans-serif';g.textAlign='left';
+      g.fillText(SLOT_LABELS[slot],eqX+6,sy+14);
 
       if(item){
         // Tier badge
-        g.fillStyle=col;g.font='bold 7px monospace';g.textAlign='right';
-        g.fillText((item.fiendish?'★ ':'')+ITEM_TIERS[item.tier]?.label.toUpperCase(),eqX+eqW-6,sy+12);
+        g.fillStyle=col;g.font='bold 9px monospace';g.textAlign='right';
+        g.fillText((item.fiendish?'★ ':'')+ITEM_TIERS[item.tier]?.label.toUpperCase(),eqX+eqW-6,sy+14);
         // Item name
         const variant=ITEM_VARIANTS[slot]?.find(v=>v.key===item.subtype);
         const name=item.name||(variant?.label||item.subtype);
-        g.fillStyle=item.fiendish?col:TX.body;g.font=(item.fiendish?'bold ':'')+Math.min(9,Math.floor(8.5))+'px system-ui,-apple-system,sans-serif';g.textAlign='center';
+        g.fillStyle=item.fiendish?col:TX.body;g.font=(item.fiendish?'bold ':'')+'11px system-ui,-apple-system,sans-serif';g.textAlign='center';
         g.fillText(name,eqX+eqW/2,sy+slotH*0.4);
         // Modifiers (up to 3)
         item.mods?.slice(0,3).forEach((mod,mi)=>{
           const mdef=ITEM_MODS.find(m=>m.key===mod.key);
-          g.fillStyle=mi===0?TX.head:TX.dim;g.font='7px system-ui,-apple-system,sans-serif';g.textAlign='center';
-          g.fillText((mdef?.label||mod.key)+' +'+mod.val+(mod.key.includes('pct')||mod.key.includes('mult')||mod.key.includes('resist')||mod.key.includes('crit')||mod.key.includes('reduce')||mod.key.includes('bonus')&&mod.key!=='seam_bonus'?'%':''),eqX+eqW/2,sy+slotH*0.4+12+mi*10);
+          g.fillStyle=mi===0?TX.head:TX.dim;g.font='8px system-ui,-apple-system,sans-serif';g.textAlign='center';
+          g.fillText((mdef?.label||mod.key)+' +'+mod.val+(mod.key.includes('pct')||mod.key.includes('mult')||mod.key.includes('resist')||mod.key.includes('crit')||mod.key.includes('reduce')||mod.key.includes('bonus')&&mod.key!=='seam_bonus'?'%':''),eqX+eqW/2,sy+slotH*0.4+13+mi*11);
         });
         // Flavor text for Fiendish
         if(item.flavor&&slotH>90){
-          g.fillStyle='rgba(255,255,255,0.35)';g.font='italic 6.5px system-ui,-apple-system,sans-serif';g.textAlign='center';
+          g.fillStyle='rgba(255,255,255,0.35)';g.font='italic 7px system-ui,-apple-system,sans-serif';g.textAlign='center';
           item.flavor.slice(0,2).forEach((fl,fi)=>g.fillText(fl,eqX+eqW/2,sy+slotH-18+fi*9));
         }
         // Unequip button
-        const ubx=eqX+4,uby=sy+slotH-16,ubw=eqW-8,ubh=12;
+        const ubx=eqX+4,uby=sy+slotH-18,ubw=eqW-8,ubh=14;
         g.fillStyle='#120a0a';g.fillRect(ubx,uby,ubw,ubh);
         g.strokeStyle='#3a1a1a';g.lineWidth=0.6;g.strokeRect(ubx,uby,ubw,ubh);
-        g.fillStyle=TX.faint;g.font='6px system-ui,-apple-system,sans-serif';g.textAlign='center';
-        g.fillText('UNEQUIP',ubx+ubw/2,uby+8.5);
+        g.fillStyle=TX.faint;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
+        g.fillText('UNEQUIP',ubx+ubw/2,uby+10);
         mkbtn(ubx,uby,ubw,ubh,()=>{unequipSlot(slot);invSelectedIdx=-1;invConfirm=null;});
       } else {
-        g.fillStyle='#2a2a3a';g.font='italic 8px system-ui,-apple-system,sans-serif';g.textAlign='center';
+        g.fillStyle='#2a2a3a';g.font='italic 9px system-ui,-apple-system,sans-serif';g.textAlign='center';
         g.fillText('[empty]',eqX+eqW/2,sy+slotH*0.55);
       }
     });
@@ -4431,22 +4522,22 @@ function drawBurrow(){
 
       // Slot name — top of card
       const variant2=ITEM_VARIANTS[item.slot]?.find(v=>v.key===item.subtype);
-      g.fillStyle=col+'99';g.font='bold 6px system-ui,-apple-system,sans-serif';g.textAlign='center';
-      g.fillText(item.slot.toUpperCase(),cx2+cellW/2,cy2+8);
+      g.fillStyle=col+'99';g.font='bold 7.5px system-ui,-apple-system,sans-serif';g.textAlign='center';
+      g.fillText(item.slot.toUpperCase(),cx2+cellW/2,cy2+9);
 
       // Slot icon — center
-      g.fillStyle=col;g.font='bold 12px system-ui,-apple-system,sans-serif';
+      g.fillStyle=col;g.font='bold 14px system-ui,-apple-system,sans-serif';
       g.fillText(variant2?.icon||item.slot[0].toUpperCase(),cx2+cellW/2,cy2+cellH*0.48);
 
       // Variant name — below icon
       if(variant2){
-        g.fillStyle=col+'bb';g.font='5.5px system-ui,-apple-system,sans-serif';
+        g.fillStyle=col+'bb';g.font='7px system-ui,-apple-system,sans-serif';
         const vLabel=variant2.label.length>10?variant2.label.slice(0,9)+'…':variant2.label;
         g.fillText(vLabel,cx2+cellW/2,cy2+cellH*0.65);
       }
 
       // Tier label
-      g.fillStyle=item.fiendish?col:col+'cc';g.font='bold 6px system-ui,-apple-system,sans-serif';
+      g.fillStyle=item.fiendish?col:col+'cc';g.font='bold 7px system-ui,-apple-system,sans-serif';
       g.fillText(item.fiendish?'★FND':(tc?.label?.slice(0,3).toUpperCase()||'???'),cx2+cellW/2,cy2+cellH*0.80);
 
       // Stack count
@@ -4459,7 +4550,7 @@ function drawBurrow(){
       // Combine-ready indicator
       if(!item.fiendish&&(item.count||1)>=3&&TIER_ORDER.indexOf(item.tier)<TIER_ORDER.length-1){
         g.fillStyle='rgba(255,215,0,0.15)';g.fillRect(cx2,cy2,cellW,cellH);
-        g.fillStyle='#ffd700';g.font='6px system-ui,-apple-system,sans-serif';g.textAlign='center';
+        g.fillStyle='#ffd700';g.font='bold 7px system-ui,-apple-system,sans-serif';g.textAlign='center';
         g.fillText('COMBINE',cx2+cellW/2,cy2+cellH-3);
       }
 
@@ -4767,7 +4858,15 @@ function drawhud(){
     const lbl2=gameMode==='2p'?'P2':gameMode==='vsai'||gameMode==='campaign'?'ECHO-7':'AI';
     g.textAlign='right';
     g.fillStyle=p2.boost>0?TX.good:p2.stunned>0||p2.curled?'#888':C2;g.font=F(11,true);g.fillText(lbl2,W-16,18);
-    g.fillStyle=TX.dim;g.font=FS(9,false);g.fillText('SCORE',W-16,30);
+    // Personality tag
+    if(gameMode==='vsai'||gameMode==='campaign'){
+      const pers=getDiffCfg().personality||'EXPLORER';
+      const persCol={EXPLORER:'#4ade80',SEEKER:'#44ffee',HOARDER:'#cc44ff',PREDATOR:'#ff4444',GHOST:'#aaaacc'}[pers]||C2;
+      const persLabel={EXPLORER:'EXPLORER',SEEKER:'SEAM SEEKER',HOARDER:'HOARDER',PREDATOR:'PREDATOR',GHOST:'GHOST'}[pers]||pers;
+      g.fillStyle=persCol;g.font='bold 6px system-ui,-apple-system,sans-serif';g.fillText(persLabel,W-16,28);
+    } else {
+      g.fillStyle=TX.dim;g.font=FS(9,false);g.fillText('SCORE',W-16,28);
+    }
     g.fillStyle=TX.head;g.font=F(15,true);g.fillText(p2.score.toLocaleString(),W-16,47);
     g.fillStyle=p2.fcc>=2?TX.good:p2.fcc>=1?TX.warn:TX.dim;g.font=FS(9,false);g.fillText('CAP:'+p2.fcc+'/3  SEA:'+p2.sc+'  COV:'+p2cov+'%',W-16,60);
     const s2=wstatus(p2);
@@ -5896,6 +5995,50 @@ const BRIEF=[
   {t:'bullet',s:'Campaign: 5 levels with unique themes, events, and AI behavior. Modes: Solo, 2P Local, VS AI, Campaign. Difficulty: Normal / Heroic / Mythic / Legendary.'},
   {t:'bullet',s:'Power-ups: Boost, Bomb, Shield, Freeze, Scramble. Stars system (0\u20133 per level, 15 total).'},
   {t:'bullet',s:'Music engine: per-level adaptive chip-tune tracks. Starfield background canvas, border glow color-synced to game state.'},
+  {t:'gap'},{t:'gap'},
+
+  {t:'divider'},
+  {t:'h2',s:'v3.3 \u2014 Janitor Update'},
+  {t:'sub',s:'Session 2 \u2014 Economy, Modes, Stability \u2014 April 2026'},
+  {t:'gap'},
+
+  {t:'h3',s:'NEW \u2014 Cosmic Janitor Mode'},
+  {t:'bullet',s:'Unlocks when all 6 raids are cleared (or via dev unlock). Accessible from the MODE column on the title screen.'},
+  {t:'bullet',s:'A 4\xd74 cosmic entity sweeps the board in a boustrophedon pattern at 4.5\xd7 player speed, resetting visited cells 2 seconds after passing. Collect them again for coins. Repeat forever.'},
+  {t:'bullet',s:'No timer, no opponent, no win condition. Pure coin grinding. Glowing teal block with animated scan line, corner sparkles, and sweep trail.'},
+  {t:'bullet',s:'5\xd7 coin multiplier applies in Janitor mode (stacks with difficulty coinMult and gear bonuses).'},
+  {t:'gap'},
+
+  {t:'h3',s:'NEW \u2014 Difficulty Coin Scaling'},
+  {t:'bullet',s:'Every coin earned \u2014 cells, seams, bonuses, match win \u2014 is multiplied by the difficulty rate. Normal 1\xd7 \u2192 Heroic 1.4\xd7 \u2192 Mythic 2\xd7 \u2192 Legendary 3\xd7 \u2192 Insane 5\xd7 \u2192 Nightmare 8\xd7 \u2192 Fiendish 15\xd7.'},
+  {t:'gap'},
+
+  {t:'h3',s:'NEW \u2014 End-Match Performance Bonuses'},
+  {t:'bullet',s:'PERFECT \u2014 NO CAPTURES: +40 coins. DOMINANT \u2014 90%+ COVERAGE: +60 coins. SOLID \u2014 75%+ COVERAGE: +25 coins. TERMINATOR \u2014 ECHO-7 ELIMINATED: +75 coins. All multiplied by difficulty coinMult.'},
+  {t:'bullet',s:'Performance bonuses listed on the end screen with amounts. Difficulty multiplier shown when no items drop.'},
+  {t:'gap'},
+
+  {t:'h3',s:'NEW \u2014 3/3 Capture Elimination'},
+  {t:'bullet',s:'Getting captured 3 times now ends the match immediately with a big screen flash and YOU LOSE message. Trapping ECHO-7 3 times fires ECHO-7 ELIMINATED \u2014 YOU WIN with shake and coins.'},
+  {t:'bullet',s:'CAP counter in the HUD is now color-coded: yellow at 1 capture, red at 2 (danger). ECHO-7\'s counter goes green when you have it at 2 \u2014 one more to win.'},
+  {t:'gap'},
+
+  {t:'h3',s:'HUD \u2014 Shop Widget Mirrored'},
+  {t:'bullet',s:'COINS pill (96px) + SHOP pill (46px) on the top-left now exactly mirrors the NORMAL\u25be + \u266aON pills on the top-right. Same 32px margin, same 148px total width, same gap.'},
+  {t:'gap'},
+
+  {t:'h3',s:'FIENDISH'},
+  {t:'bullet',s:'Difficulty color changed from purple to deep blood red (#8b0000) across all UI elements: dropdown, pill, HUD, border, lock stripe.'},
+  {t:'gap'},
+
+  {t:'h3',s:'Stability \u2014 Freeze Fixes'},
+  {t:'bullet',s:'ROOT CAUSE FIXED: calcStars() was missing const lv=currentLevel \u2014 threw ReferenceError on every campaign win, killing the animation loop. Campaign now completes correctly.'},
+  {t:'bullet',s:'Coverage win check overhauled: HUD bar and win condition now both use the actual unique-cell Set (deduplicated union of both players\' visited cells), not a raw sum that double-counted overlapping territory. Bar was showing 100% while true unique coverage was ~80%.'},
+  {t:'bullet',s:'setTimeout(endgame,600) was scheduling ~36 endgame calls per second when fcc>=3 (since fcc stayed at 3 every frame). Replaced with elimPending flag + elimTimer ticked via dt. Fires exactly once per match.'},
+  {t:'bullet',s:'Particle hard cap: spawnBurst/spawnRing bail at 280 particles. updateParticles culls at 300. Seam crossing burst reduced from 32 particles to 16. scorePopups capped at 35.'},
+  {t:'bullet',s:'4 separate per-frame grid loops (fl decay, uf decay, void decay, trav count) merged into 1. Lock glyph rendering: 6 arc/arcTo calls per locked cell replaced with 3 fillRect calls.'},
+  {t:'bullet',s:'Pillar of light shadowBlur removed (full-canvas GPU blur every frame per item). Janitor and worm movement loops capped at 10/8 iterations to handle large dt spikes on tab refocus.'},
+  {t:'bullet',s:'Game loop wrapped in try/catch \u2014 uncaught exceptions no longer silently kill requestAnimationFrame. Error state shown instead of frozen screen.'},
   {t:'gap'},{t:'gap'},
 
   {t:'rule'},
