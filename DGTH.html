@@ -4636,6 +4636,19 @@ function drawBurrow(){
   g.fillStyle='#8a7000';g.font='8px system-ui,-apple-system,sans-serif';
   g.fillText('COINS',14,38);
 
+  // ── CHARACTER PILL — compact identity badge below coins ──
+  const charName=save.characterName||'UNNAMED';
+  const personaData=PERSONAS.find(p=>p.key===(save.persona||'scute'))||PERSONAS[0];
+  const pillX=10,pillY=44,pillW=140,pillH=18;
+  g.fillStyle='#0a0a18';g.fillRect(pillX,pillY,pillW,pillH);
+  g.strokeStyle='#2a2458';g.lineWidth=0.7;g.strokeRect(pillX,pillY,pillW,pillH);
+  g.fillStyle=C1;g.font='bold 8px system-ui,-apple-system,sans-serif';g.textAlign='left';
+  g.fillText(charName,pillX+6,pillY+12);
+  g.fillStyle='#3a3a5a';g.font='8px system-ui,-apple-system,sans-serif';
+  g.fillText('\xb7',pillX+6+g.measureText(charName).width+4,pillY+12);
+  g.fillStyle=personaData.col;g.font='8px system-ui,-apple-system,sans-serif';
+  g.fillText(personaData.label,pillX+6+g.measureText(charName).width+12,pillY+12);
+
   // Back button
   const backW=80,backH=22;
   g.fillStyle='#0a0a18';g.fillRect(W-backW-10,8,backW,backH);
@@ -4647,12 +4660,6 @@ function drawBurrow(){
   // ── ARMADILLO IDLE ──
   const dilloCX=W/2, dilloCY=100;
   drawArmadilloIdle(dilloCX,dilloCY,60,t,burrowCosmetic,burrowPersona);
-  // Character name
-  const charName=save.characterName||'UNNAMED';
-  g.fillStyle=C1;g.font='bold 11px system-ui,-apple-system,sans-serif';g.textAlign='center';
-  g.fillText(charName,dilloCX,dilloCY+56);
-  g.fillStyle=TX.faint;g.font='8px system-ui,-apple-system,sans-serif';
-  g.fillText('SCUTE CLASS TRAVERSAL ENTITY',dilloCX,dilloCY+68);
 
   // ── TABS ──
   const tabY=150,tabH=24;
